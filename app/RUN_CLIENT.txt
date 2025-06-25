@@ -1,0 +1,5 @@
+Run Client
+npm run dev
+
+This app uses the following libraries:
+npm install express ws openai dotenv

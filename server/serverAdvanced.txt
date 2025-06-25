@@ -1,0 +1,66 @@
+//MODIFY SERVER TO HANDLE MULTIPLE FUNCTIONS:
+
+const express = require("express");
+const http = require("http");
+const { WebSocketServer } = require("ws");
+const OpenAI = require("openai");
+require("dotenv").config();
+
+const app = express();
+const server = http.createServer(app);
+const wss = new WebSocketServer({ server });
+
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+wss.on("connection", (ws) => {
+  ws.on("message", async (message) => {
+    try {
+      const data = JSON.parse(message); // Expecting JSON input
+      const { type, content } = data;
+
+      if (type === "chat") {
+        // Handle Chatbot Responses
+        const stream = await openai.chat.completions.create({
+          model: "gpt-4-turbo",
+          messages: [{ role: "user", content }],
+          stream: true,
+        });
+
+        for await (const chunk of stream) {
+          if (chunk.choices[0]?.delta?.content) {
+            ws.send(chunk.choices[0].delta.content);
+          }
+        }
+      } else if (type === "translate") {
+        // Handle Translation (English ↔ Chinese)
+        const translation = await openai.chat.completions.create({
+          model: "gpt-4-turbo",
+          messages: [
+            {
+              role: "system",
+              content: "Translate the following text between English and Chinese while maintaining the original meaning.",
+            },
+            { role: "user", content },
+          ],
+        });
+
+        ws.send(translation.choices[0].message.content);
+      } else {
+        ws.send("Invalid request type.");
+      }
+    } catch (error) {
+      ws.send("Error processing request.");
+    }
+  });
+});
+
+server.listen(3000, () => console.log("Server running on port 3000"));
+
+//THEN MODIFY FRONT END
+//REPLACE
+//ws.send(input);
+//WITH
+//ws.send(JSON.stringify({ type: "chat", content: input }));
+//OR
+//ws.send(JSON.stringify({ type: "translate", content: input }));
+

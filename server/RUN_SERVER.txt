@@ -1,0 +1,3 @@
+cd server; node --watch server.js
+
+'--watch' restarts the server when a new change is detected, similar to nodemon
