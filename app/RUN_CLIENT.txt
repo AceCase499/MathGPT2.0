@@ -2,4 +2,19 @@ Run Client
 npm run dev
 
 This app uses the following libraries:
-npm install express ws openai dotenv
+
+express 
+ws 
+openai 
+dotenv
+react-markdown
+remark-math 
+rehype-katex 
+katex
+@supabase/supabase-js
+tailwindcss 
+@tailwindcss/postcss 
+postcss
+
+Install with this command, Mac users: place sudo in front of the command
+npm install express ws openai dotenv react-markdown remark-math rehype-katex katex @supabase/supabase-js tailwindcss @tailwindcss/postcss postcss

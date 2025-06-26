@@ -2,7 +2,7 @@ const express = require("express");
 const http = require("http");
 const { WebSocketServer } = require("ws");
 const OpenAI = require("openai");
-const { object } = require("zod");
+//const { object } = require("zod");
 const { render } = require("katex");
 require("dotenv").config();
 
