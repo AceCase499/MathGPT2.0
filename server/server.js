@@ -9,7 +9,7 @@ require("dotenv").config();
 const app = express();
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
-const openai = new OpenAI({ apiKey: process.env.NEXT_PUBLIC_JGKEY });
+const openai = new OpenAI({ apiKey: process.env.NEXT_PUBLIC_MATHGPTKEY });
 const tutorial = "Welcome to your virtual math tutor! Change the math topic of interest by "+
   "clicking the text at the top of this page.  Use the buttons to enter an equation, and choose "+
   "to step through the problem or solve it instantly with the buttons provided.  You can edit your "+

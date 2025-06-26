@@ -21,9 +21,7 @@ CORS(app)  # Enable CORS for all routes
 logging.basicConfig(level=logging.INFO)
 
 # Ensure your OpenAI API key is set as an environment variable
-api_key = os.getenv('NEXT_PUBLIC_APIKEY') | "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"  # Ensure the environment variable is set correctly
-
-
+#include new API key here
 # Initialize the OpenAI client
 client = OpenAI(api_key=api_key)
 
