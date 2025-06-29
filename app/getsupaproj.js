@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_JERRODS_SUPABASE_URL
-const supabaseAnonKey = process.env.NEXT_PUBLIC_JERRODS_SUPABASE_ANONKEY
+const supabaseUrl = process.env.JERRODS_SUPABASE_URL
+const supabaseAnonKey = process.env.JERRODS_SUPABASE_ANON
 
 const supabaseProj = createClient(
   supabaseUrl,
