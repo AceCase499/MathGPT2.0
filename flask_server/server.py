@@ -53,7 +53,7 @@ def addToSupabase():
         
     except Exception as exception:
         return exception
-    return jsonify(response.text)
+    return jsonify(response.content)
 
 if __name__ == '__main__':
     app.run(debug=True)

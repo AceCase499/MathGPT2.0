@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import supabaseProj from '../getsupaproj/page';
+import supabaseProj from '../getsupaproj.js';
 
 export default function datalab() {
   //const [data, setData] = useState<any[]>([]);
