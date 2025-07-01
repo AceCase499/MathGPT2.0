@@ -1,9 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;/* default light mode background color */
-  --foreground: #000000;/* default light mode text color */
-  --fontFamily: "Permanent Marker", "cursive"
+  --background: #ffffff;
+  --foreground: #171717;
 }
 
 @theme inline {
@@ -15,59 +14,13 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #fff3b0;/* default background color */
-    --foreground: #000000;/* default text color */
+    --background: #0a0a0a;
+    --foreground: #ededed;
   }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: "Permanent Marker", "cursive";
+  font-family: Arial, Helvetica, sans-serif;
 }
-
-.centerThis {
-  justify-content: flex-start;
-  align-self: flex-start;
-  margin: auto;
-  text-align: center;
-}
-
-.parent .child {
-  display: none; /* Initially hide the child */
-  width: fit-content;
-}
-
-.parent:hover .child {
-  display: block; /* Show the child when the parent is hovered */
-  display: flex;
-  justify-content: flex-end;
-  align-self: flex-end;
-  width: 50%;
-}
-
-.tooltip {
-    width: 200px;
-    position: fixed;
-    top:auto;
-    bottom:0px;
-    right:0px;
-    left:auto;
-  }
-
-   
-  .inputBar { /*for chat page*/
-    width: 60%;
-  }
-
-
-
-  @keyframes fadeInAnimation {
-    0% {
-        opacity: 0;
-    }
-
-    100% {
-        opacity: 1;
-    }
-  }
