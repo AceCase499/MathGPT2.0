@@ -17,7 +17,8 @@ from sqlalchemy.orm import DeclarativeBase, Session, mapped_column, Mapped, Sess
 from flask import Flask, render_template, request
 from typing import List
 
-engine = create_engine("postgresql://postgres:supabasetesting@db.uexllsxcfbknokvcdrvr.supabase.co:5432/postgres", echo = True)
+# engine = create_engine("postgresql://postgres:supabasetesting@db.uexllsxcfbknokvcdrvr.supabase.co:5432/postgres", echo = True)
+engine = create_engine("postgresql://postgres:J5FjyNbzKHuPK6mK@db.mpgvjrzxvizjnyxdyntp.supabase.co:5432/postgres", echo = True)
 
 app = Flask(__name__)
 
