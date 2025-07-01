@@ -9,10 +9,10 @@ const HomePage = () => {
 
   const handleLogout = () => {
     console.log('Logged out');
-    
   };
+  
   return (
-    <div style={{ minHeight: '100vh', color: 'white', backgroundColor: '#1f2937' }}>
+    <div style={{ minHeight: '100vh', color: 'white' }}>
       <nav style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0rem', backgroundColor: '#374151' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
           <div style={{ fontSize: '1rem' }}>
@@ -64,7 +64,7 @@ const HomePage = () => {
             <h1 style={{ fontFamily: "'Permanent Marker', cursive", fontSize: '11rem' }}>GPT</h1>
           </div>
           <div style={{ display: 'flex', gap: '2rem', marginTop: '-4rem' }}>
-            <button onClick={() => navigate('/lectures/new')} style={{ fontFamily: "'Permanent Marker', cursive", fontSize: '1.5rem', padding: '1rem 2.5rem', border: '2px solid black', borderRadius: '0.5rem', backgroundColor: 'white', color: 'black', cursor: 'pointer' }}>New Lecture</button>
+            <button onClick={() => navigate('/lecture')} style={{ fontFamily: "'Permanent Marker', cursive", fontSize: '1.5rem', padding: '1rem 2.5rem', border: '2px solid black', borderRadius: '0.5rem', backgroundColor: 'white', color: 'black', cursor: 'pointer' }}>New Lecture</button>
             <button onClick={() => navigate('/problems/new')} style={{ fontFamily: "'Permanent Marker', cursive", fontSize: '1.5rem', padding: '1rem 2.5rem', border: '2px solid black', borderRadius: '0.5rem', backgroundColor: 'white', color: 'black', cursor: 'pointer' }}>New Problem</button>
           </div>
         </div>

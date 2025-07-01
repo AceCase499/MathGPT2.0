@@ -1,99 +1,43 @@
 'use client'
 
-import Link from 'next/link'
-import { useState } from 'react'
-import Image from 'next/image'
-
-export default function HomePage() {
-  const [FirstChat, setMessage] = useState('')
-  const [UploadedImage, setUploadedImage] = useState<string | null>(null)
-
-  async function goToChat(e: React.FormEvent) {
-    e.preventDefault() // Prevent form default behavior
-    window.location.href = `/newchat?FirstChat=${encodeURIComponent(FirstChat)}`
-  }
-
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        setUploadedImage(reader.result as string)
-      }
-      reader.readAsDataURL(file)
-    }
-  }
-
+import Image from "next/image"
+export default function Home() {
   return (
-    <div className="container mx-auto p-4 flex flex-col items-center">
-      {/* Header with sign-in button */}
-      <div className="w-full flex justify-end items-center space-x-4 p-4">
-        <a
-            href="/login"
-            className="rounded-md px-3.5 py-2 m-1 overflow-hidden relative group cursor-pointer border-2 font-medium border-gray-500 text-gray-600 hover:text-white"
-          >
-            <span className="absolute w-64 h-0 transition-all duration-300 origin-center rotate-45 -translate-x-20 bg-gray-600 top-1/2 group-hover:h-64 group-hover:-translate-y-32 ease"></span>
-            <span className="relative text-gray-400 transition duration-300 group-hover:text-white ease">
-              Sign In
-            </span>
-          </a>
-      </div>
+    <div className="min-h-screen flex flex-col items-center bg-white text-gray-900">
 
-      {/* Main image */}
-      <div className="flex justify-center mt-8">
-        <p className='text-4xl font-bold text-amber-400'>Learn Something New With MathGPT 2.0!</p>
-        <br/><br/>
-        {/* <Image
-          src="../assets/images/mathgpt.png"
-          alt="MathGPT"
-          width={300}
-          height={300}
-          className="rounded-lg"
-          style={{ width: '350px', height: '350px' }}
-        /> */}
-        <div style={{width: "25vw", height: "25vw"}} className='rounded-full bg-gradient-to-r from-violet-600 to-indigo-600'></div>
-      </div>
+      
+      <section className="mt-20 flex flex-col items-center text-center">
+        <Image src="/assets/images/logofull.png" alt="MathGPT Full Logo" width={320} height={80} priority />
+        <p className="mt-4 text-xl font-medium text-gray-700">MathGPT, your best math tutor</p>
+      </section>
 
-      {/* Message input */}
-      <div className="w-full flex items-center justify-center mt-8">
-      </div>
+      
+      <section className="w-full max-w-3xl mt-20 px-6 text-center">
+        <h2 className="text-2xl font-semibold mb-2">About Us</h2>
+        <hr className="border-t border-gray-300 mb-4" />
+        <p className="text-gray-700">...</p>
+      </section>
 
-      {/* Navigation buttons */}
-      <div className="flex space-x-4 mt-8">
-        <a
-            href="/fetest"
-            className="rounded-md px-3.5 py-2 m-1 overflow-hidden relative group cursor-pointer border-2 font-medium border-gray-500 text-gray-600 hover:text-white"
-          >
-            <span className="absolute w-64 h-0 transition-all duration-300 origin-center rotate-45 -translate-x-20 bg-gray-600 top-1/2 group-hover:h-64 group-hover:-translate-y-32 ease"></span>
-            <span className="relative text-gray-400 transition duration-300 group-hover:text-white ease">
-              Get Started
-            </span>
-          </a>
-      </div>
-
-      {/* Display uploaded image */}
-      {UploadedImage && (
-        <div className="mt-8">
-          <img
-            src={UploadedImage}
-            alt="Uploaded"
-            className="rounded-lg"
-            style={{ width: '400px', height: '400px' }} // Adjust the width and height as needed
-          />
+      
+      <section className="w-full max-w-5xl mt-12 px-6 grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
+        <div className="bg-gray-100 p-6 rounded-lg shadow">
+          <h3 className="text-xl font-semibold mb-2">About MathGPT</h3>
+          <p className="text-gray-600">...</p>
         </div>
-      )}
-      <br/><br/><br/>
-      <p className='pb-10 text-4xl font-bold text-amber-400'>Engage with fast and thoughtful AI Math Tutor that Tracks and Supports Your Growth!</p>
-      <div></div>
-      <a
-            href="/login"
-            className="rounded-md px-3.5 py-2 m-1 overflow-hidden relative group cursor-pointer border-2 font-medium border-gray-500 text-gray-600 hover:text-white"
-          >
-            <span className="absolute w-64 h-0 transition-all duration-300 origin-center rotate-45 -translate-x-20 bg-gray-600 top-1/2 group-hover:h-64 group-hover:-translate-y-32 ease"></span>
-            <span className="relative text-gray-400 transition duration-300 group-hover:text-white ease">
-              View Plans
-            </span>
-          </a>
+        <div className="bg-gray-100 p-6 rounded-lg shadow">
+          <h3 className="text-xl font-semibold mb-2">Features</h3>
+          <p className="text-gray-600">...</p>
+        </div>
+        <div className="bg-gray-100 p-6 rounded-lg shadow">
+          <h3 className="text-xl font-semibold mb-2">Reviews</h3>
+          <p className="text-gray-600">...</p>
+        </div>
+      </section>
+
+      
+      <footer className="mt-20 text-sm text-gray-500 py-6">
+        &copy; {new Date().getFullYear()} MathGPT. All rights reserved.
+      </footer>
     </div>
   )
 }
