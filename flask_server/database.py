@@ -113,20 +113,20 @@ class Lectures(Base):
         foreign_keys="Lectures.student_id"
     )
 
+    chat_messages: Mapped[List["LectureChat"]] = relationship(back_populates="lecture")
+
     def __repr__(self):
         return f"Lecture(id={self.id}, title={self.title})"
-
-""" class Post(Base):
-    __tablename__ = "post"
+    
+class LectureChat(Base):
+    __tablename__ = "lecture_chat"
     id: Mapped[int] = mapped_column(primary_key=True)
-    title: Mapped[str] = mapped_column(String(50), default="Untitled Post")
-    content: Mapped[str] = mapped_column(Text)
-    user_id: Mapped[int] = mapped_column(ForeignKey("user.id"))
+    lecture_id: Mapped[int] = mapped_column(ForeignKey("lectures.id"))
+    sender: Mapped[str] = mapped_column(String)  # "student" or "ai"
+    message: Mapped[str] = mapped_column(Text)
+    timestamp: Mapped[Optional[str]] = mapped_column(String)
 
-    user: Mapped["User"] = relationship(back_populates="posts")
-
-    def __repr__(self):
-        return f"Post(id={self.id}, title={self.title})" """
+    lecture: Mapped["Lectures"] = relationship(back_populates="chat_messages")
 
 Base.metadata.create_all(engine)
 
@@ -197,49 +197,43 @@ def login():
     # Sends user to login.html page
     return render_template('login.html')
 
+@app.route('/lecture_chat', methods=['POST'])
+def lecture_chat():
+    lecture_id = request.form.get('lecture_id')
+    sender = request.form.get('sender')  # "student" or "ai"
+    message = request.form.get('message')
+
+    if not all([lecture_id, sender, message]):
+        return "Missing chat data", 400
+
+    with Session(engine) as session:
+        chat = LectureChat(
+            lecture_id=int(lecture_id),
+            sender=sender,
+            message=message
+        )
+        session.add(chat)
+        session.commit()
+
+    return "Message saved"
+
+
+@app.route('/lecture_chat/<int:lecture_id>')
+def view_lecture_chat(lecture_id):
+    with Session(engine) as session:
+        messages = session.query(LectureChat).filter_by(lecture_id=lecture_id).order_by(LectureChat.timestamp).all()
+        return render_template("chat_view.html", messages=messages)
+    
+# Example code for chat_view.html
+"""<h2>Lecture Chat</h2>
+<ul>
+  {% for msg in messages %}
+    <li>
+      <strong>{{ msg.sender|capitalize }}:</strong> {{ msg.message }} <em>({{ msg.timestamp }})</em>
+    </li>
+  {% endfor %}
+</ul>
+"""
+
 if __name__ == '__main__':
     app.run(debug=True)
-    
-    
-# with Session(engine) as session:
-#     anthony = User(name="Anthony")
-#     kim = User(name="Kim", last_login=datetime.now(timezone.utc))
-#     session.add(anthony)
-#     session.add(kim)
-#     session.commit()
-
-#     post1 = Post(title="Anthony's first post", content="Hello world!")
-#     post2 = Post(title="Kim's first post", content="Hello again!")
-#     post3 = Post(title="Anthony's second post", content="Hello world!")
-#     post4 = Post(title="Anthony's third post", content="Hello again!")
-#     post5 = Post(title="Kim's second post", content="Hello again!")
-
-#     anthony.posts.append(post1)
-#     anthony.posts.append(post3)
-#     anthony.posts.append(post4)
-#     kim.posts.append(post2)
-#     kim.posts.append(post5)
-
-#     session.commit()
-
-#     stmt = select(User)
-#     users = session.scalars(stmt).all()
-#     for user in users:
-#         print(user)
-#         for post in user.posts:
-#             print(f"  {post}")
-
-#     anthony = session.get(User, 1)
-#     if anthony:
-#         print(f"Found user: {anthony}")
-
-#     stmt = select(User).where(User.name == "Kim")
-#     kim = session.scalars(stmt).first()
-#     if kim:
-#         print(f"Found user: {kim}")
-
-#     stmt = select(Post).where(Post.user == anthony).order_by(Post.id.desc())
-#     posts = session.scalars(stmt).all()
-#     for post in posts:
-#         print(post)
-#         print(f"  {post.user}")
