@@ -11,11 +11,12 @@
 # Polymorphic identity is used for inheritance in SQLAlchemy, allowing you to query subclasses of a base class
 # Relationship is used to define relationships between tables in SQLAlchemy
 # Flask is used to create a web application with routes for user creation and login
-from typing import Optional
-from sqlalchemy import create_engine, String, Text, select, ForeignKey
-from sqlalchemy.orm import DeclarativeBase, Session, mapped_column, Mapped, Session, relationship
-from flask import Flask, render_template, request
-from typing import List
+
+from typing import Optional, List
+from sqlalchemy import create_engine, String, Text, select, ForeignKey, Integer
+from sqlalchemy.orm import DeclarativeBase, Session, mapped_column, Mapped, relationship
+from flask import Flask, render_template, request, redirect
+from datetime import datetime
 
 # engine = create_engine("postgresql://postgres:supabasetesting@db.uexllsxcfbknokvcdrvr.supabase.co:5432/postgres", echo = True)
 engine = create_engine("postgresql://postgres:J5FjyNbzKHuPK6mK@db.mpgvjrzxvizjnyxdyntp.supabase.co:5432/postgres", echo = True)
@@ -50,7 +51,7 @@ class User_Login(Base):
     id: Mapped[int] = mapped_column(ForeignKey("user.id"), primary_key=True)
     username: Mapped[str] = mapped_column(String, unique=True, nullable=False)
     password: Mapped[str] = mapped_column(String, nullable=False)
-    
+
 # Tutor class
 class Tutor(User):
     __tablename__ = "tutor"
@@ -74,13 +75,12 @@ class Tutor(User):
 class Student(User):
     __tablename__ = "student"
     id: Mapped[int] = mapped_column(ForeignKey("user.id"), primary_key=True)
-    teacher_id: Mapped[Optional[int]]
+    teacher_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     tutor_id: Mapped[Optional[int]] = mapped_column(ForeignKey("tutor.id"), nullable=True)
-    grade: Mapped[Optional[int]]
-    stored_chats: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-    staring_assessment: Mapped[Optional[int]]
+    grade: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    staring_assessment: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     current_subject: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-    progress_percentage: Mapped[Optional[float]]
+    progress_percentage: Mapped[Optional[float]] = mapped_column(String, nullable=True)
 
     # Relationship to link Student with Tutor
     tutor: Mapped[Optional["Tutor"]] = relationship(
@@ -99,10 +99,11 @@ class Student(User):
 
     def __repr__(self):
         return f"Student(id={self.id}, username={self.username})"
-    
+
 class Lectures(Base):
     __tablename__ = "lectures"
     id: Mapped[int] = mapped_column(primary_key=True)
+    student_id: Mapped[int] = mapped_column(ForeignKey("student.id"))
     title: Mapped[str] = mapped_column(String(50), default="Untitled Lecture")
     topic: Mapped[str] = mapped_column(String)
     subtopic: Mapped[str] = mapped_column(String)
@@ -113,11 +114,12 @@ class Lectures(Base):
         foreign_keys="Lectures.student_id"
     )
 
+    students: Mapped["Student"] = relationship(back_populates="lectures")
     chat_messages: Mapped[List["LectureChat"]] = relationship(back_populates="lecture")
 
     def __repr__(self):
         return f"Lecture(id={self.id}, title={self.title})"
-    
+
 class LectureChat(Base):
     __tablename__ = "lecture_chat"
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -140,40 +142,56 @@ def home():
 def create_user():
     if request.method == 'POST':
         try:
-            with Session(engine) as session:
-                # Check if the username already exists
-                user_login = session.query(User_Login).filter_by(username=request.form.get('username')).first()
-                if user_login:
-                    return "Username already exists. Please choose a different username."
-                
-                # Creates the new User
-                user = User(
-                    user_type=request.form.get('user_type'),
-                    name = request.form.get('name'),
-                    district = request.form.get('district'),
-                    age = request.form.get('age')
-                )
-                # Adds User to database
-                session.add(user)
-                session.commit()
+            user_type = request.form.get('user_type', '').strip().lower()
+            username = request.form.get('username')
 
-                # Adds login information for the user to database
-                login_info = User_Login(id=user.id, username=request.form.get('username'), password=request.form.get('password'))
+            with Session(engine) as session:
+                # Check for duplicate username
+                if session.query(User_Login).filter_by(username=username).first():
+                    return "Username already exists. Please choose a different username."
+
+                # Choose correct subclass
+                if user_type == 'student':
+                    user = Student(
+                        user_type="Student",
+                        name=request.form.get('name'),
+                        district=request.form.get('district'),
+                        age=request.form.get('age'),
+                        teacher_id=None,
+                        tutor_id=None,
+                        grade=1,
+                        staring_assessment=None,
+                        current_subject=None,
+                        progress_percentage=None
+                    )
+                elif user_type == 'tutor':
+                    user = Tutor(
+                        user_type="Tutor",
+                        name=request.form.get('name'),
+                        district=request.form.get('district'),
+                        age=request.form.get('age'),
+                        subjects=request.form.get('subjects')
+                    )
+                else:
+                    user = User(
+                        user_type="User",
+                        name=request.form.get('name'),
+                        district=request.form.get('district'),
+                        age=request.form.get('age')
+                    )
+
+                session.add(user)
+                session.flush()  # assigns user.id
+
+                login_info = User_Login(
+                    id=user.id,
+                    username=username,
+                    password=request.form.get('password')
+                )
                 session.add(login_info)
                 session.commit()
 
-                # Adds additional information based on user type
-                if request.form.get('user_type') == 'Tutor':
-                    tutor = Tutor(id=user.id, subjects=request.form.get('subjects'))
-                    session.add(tutor)
-                    session.commit()
-                elif request.form.get('user_type') == 'Student':
-                    student = Student(id=user.id, teacher_id=request.form.get('teacher_id'), tutor_id=request.form.get('tutor_id'), grade=request.form.get('grade'), stored_chats=request.form.get('stored_chats'), staring_assessment=request.form.get('staring_assessment'), current_subject=request.form.get('current_subject'), progress_percentage=request.form.get('progress_percentage'))
-                    session.add(student)
-                    session.commit()
-
-            return f"User created successfully!"
-        # Catch errors
+            return f"User created successfully with ID: {user.id}"
         except Exception as e:
             return f"Error: {str(e)}"
     return "User created"
@@ -198,32 +216,60 @@ def login():
     return render_template('login.html')
 
 @app.route('/lecture_chat', methods=['POST'])
-def lecture_chat():
-    lecture_id = request.form.get('lecture_id')
-    sender = request.form.get('sender')  # "student" or "ai"
-    message = request.form.get('message')
+def add_chat_message():
+    data = request.form
+    lecture_id = data.get('lecture_id')
+    sender = data.get('sender')  # "student" or "ai"
+    message = data.get('message')
 
-    if not all([lecture_id, sender, message]):
-        return "Missing chat data", 400
+    if not message or sender not in ['student', 'ai']:
+        return "Invalid input", 400
 
     with Session(engine) as session:
+        if not lecture_id:
+            student_id = data.get('student_id')  # must be provided in the form
+            if not student_id:
+                return "Missing student_id to create lecture", 400
+
+            new_lecture = Lectures(
+                student_id=int(student_id),
+                title="Untitled Chat Lecture",
+                topic="General",
+                subtopic="Chat Session",
+                content=""
+            )
+            session.add(new_lecture)
+            session.commit()
+            lecture_id = new_lecture.id     
+        else:
+            lecture_id = int(lecture_id)
+
         chat = LectureChat(
-            lecture_id=int(lecture_id),
+            lecture_id=lecture_id,
             sender=sender,
-            message=message
+            message=message,
+            timestamp=datetime.utcnow()
         )
         session.add(chat)
         session.commit()
 
-    return "Message saved"
-
+    return f"Message stored in Lecture ID {lecture_id}"
 
 @app.route('/lecture_chat/<int:lecture_id>')
 def view_lecture_chat(lecture_id):
     with Session(engine) as session:
         messages = session.query(LectureChat).filter_by(lecture_id=lecture_id).order_by(LectureChat.timestamp).all()
         return render_template("chat_view.html", messages=messages)
-    
+
+@app.route('/lecture_chat_view', methods=['GET'])
+def redirect_to_chat():
+    lecture_id = request.args.get('lecture_id')
+    return redirect(f'/lecture_chat/{lecture_id}')
+
+@app.route('/chat_simulator')
+def chat_simulator():
+    return render_template('chat_simulator.html')
+
 # Example code for chat_view.html
 """<h2>Lecture Chat</h2>
 <ul>

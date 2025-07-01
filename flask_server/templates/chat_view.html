@@ -1,0 +1,8 @@
+<h2>Lecture Chat</h2>
+<ul>
+  {% for msg in messages %}
+    <li>
+      <strong>{{ msg.sender|capitalize }}:</strong> {{ msg.message }} <em>({{ msg.timestamp }})</em>
+    </li>
+  {% endfor %}
+</ul>

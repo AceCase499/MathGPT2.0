@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Lecture Chat Simulator</title>
+</head>
+
+<body>
+    <h1>Lecture Chat Simulator</h1>
+
+    <form action="/lecture_chat" method="POST">
+        <label for="lecture_id">Lecture ID (leave blank to create new):</label>
+        <input type="number" name="lecture_id" id="lecture_id"><br><br>
+
+        <label for="student_id">Student ID (only needed when creating new lecture):</label>
+        <input type="number" name="student_id" id="student_id"><br><br>
+
+        <label for="sender">Sender:</label>
+        <select name="sender" id="sender" required>
+            <option value="student">Student</option>
+            <option value="ai">AI</option>
+        </select><br><br>
+
+        <label for="message">Message:</label><br>
+        <textarea name="message" id="message" rows="4" cols="50" required></textarea><br><br>
+
+        <button type="submit">Send Message</button>
+    </form>
+
+
+    <hr>
+
+    <h2>View Messages</h2>
+    <form action="/lecture_chat_view" method="GET">
+        <label for="lecture_id_view">Lecture ID:</label>
+        <input type="number" name="lecture_id" id="lecture_id_view" required>
+        <button type="submit">View Chat</button>
+    </form>
+</body>
+
+</html>
