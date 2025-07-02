@@ -18,9 +18,7 @@ from sqlalchemy.orm import DeclarativeBase, Session, mapped_column, Mapped, rela
 from flask import Flask, render_template, request, redirect
 from datetime import datetime
 
-# engine = create_engine("postgresql://postgres:supabasetesting@db.uexllsxcfbknokvcdrvr.supabase.co:5432/postgres", echo = True)
-engine = create_engine("postgresql://postgres:J5FjyNbzKHuPK6mK@db.mpgvjrzxvizjnyxdyntp.supabase.co:5432/postgres", echo = True)
-
+engine = create_engine("no api key for you")
 app = Flask(__name__)
 
 # Base class for declarative models
