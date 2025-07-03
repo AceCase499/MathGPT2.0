@@ -14,13 +14,59 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #ffffff;/* default background color */
+    --foreground: #000000;/* default text color */
   }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  /* font-family: "Permanent Marker", "cursive"; */
 }
+
+.centerThis {
+  justify-content: flex-start;
+  align-self: flex-start;
+  margin: auto;
+  text-align: center;
+}
+
+.parent .child {
+  display: none; /* Initially hide the child */
+  width: fit-content;
+}
+
+.parent:hover .child {
+  display: block; /* Show the child when the parent is hovered */
+  display: flex;
+  justify-content: flex-end;
+  align-self: flex-end;
+  width: 50%;
+}
+
+.tooltip {
+    width: 200px;
+    position: fixed;
+    top:auto;
+    bottom:0px;
+    right:0px;
+    left:auto;
+  }
+
+   
+  .inputBar { /*for chat page*/
+    width: 60%;
+  }
+
+
+
+  @keyframes fadeInAnimation {
+    0% {
+        opacity: 0;
+    }
+
+    100% {
+        opacity: 1;
+    }
+  }
