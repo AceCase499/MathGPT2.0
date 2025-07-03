@@ -2,7 +2,7 @@ cd flask_server; source .venv/bin/activate; python3 server.py
 
 Run this, open the url in your browser, add '/users' to the url
 
-pip3 install cors flask_cors flask supabase sqlalchemy flask-sqlalchemy psycopg2
+pip3 install flask flask-sqlalchemy sqlalchemy psycopg2
 
 If you get errors, remove '.venv' and create a new python virtual environment
 

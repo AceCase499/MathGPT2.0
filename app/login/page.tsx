@@ -29,17 +29,28 @@ export default function LoginPage() {
 
     setLoading(true);
 
-    const response = await fetch('/https://mathgptdevs25.pythonanywhere.com/create_user', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({email, password}),
+    const form = new FormData();
+    Object.entries({email: "", password: ""}).forEach(([key, value]) => {
+      form.append(key, value);
     });
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const response = await fetch('https://mathgptdevs25.pythonanywhere.com/create_user', {
+      method: 'POST',
+      body: form, // no need for headers; browser sets correct Content-Type
+    });
 
-    setLoading(false);
+    const result = await response.text(); // Read plain text response
 
-    if (error) {
+    const timer = setTimeout(() => {
+        setLoading(false);
+        alert("Welcome back to MathGPT!")
+        router.push('/welcome');
+      }, 2500); //wait for one nanosecond, then toggle the bool that renders the session list
+      return () => clearTimeout(timer);
+    //const { error } = await supabase.auth.signInWithPassword({ email, password });
+    //setLoading(false);
+
+    /* if (error) {
       if (error.message.toLowerCase().includes('invalid login credentials')) {
         alert('Incorrect email or password. Please try again.');
       } else {
@@ -47,7 +58,7 @@ export default function LoginPage() {
       }
     } else {
       router.push('/dashboard');
-    }
+    } */
   };
 
   return (

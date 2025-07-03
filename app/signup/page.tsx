@@ -27,9 +27,16 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
+  const handleChange = (
+  e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
+  const { name, value, type } = e.target;
+
+  setFormData({
+    ...formData,
+    [name]: type === 'number' ? (value === '' ? '' : Number(value)) : value,
+  });
+};
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -44,13 +51,19 @@ export default function SignupPage() {
       method: 'POST',
       body: form, // no need for headers; browser sets correct Content-Type
     });
-    setLoading(false);
 
     const result = await response.text(); // Read plain text response
-    alert(result); // Show it in an alert box
 
+    const timer = setTimeout(() => {
+        setLoading(false);
+        alert("You're all set. Welcome to MathGPT!")
+        router.push('/welcome');
+      }, 2500); //wait for one nanosecond, then toggle the bool that renders the session list
+      return () => clearTimeout(timer);
+
+    //alert(result); // Show it in an alert box
     // Optional redirect if successful
-    if (result.toLowerCase().includes('User created')) {
+    /* if (result.toLowerCase().includes('User created')) {
       if (formData.user_type === 'student') {
         router.push('/welcome');
       } else if (formData.user_type === 'tutor') {
@@ -58,7 +71,7 @@ export default function SignupPage() {
       } else {
         router.push('/dashboard');
       }
-    }
+    } */
   };
 
   return (
