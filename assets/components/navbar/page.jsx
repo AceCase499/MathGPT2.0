@@ -16,7 +16,6 @@ const NavigationBar = () => {
           <div style={{ fontSize: '1rem' }}>
             <button onClick={() => navigate('/')} style={{
               background: 'none',
-              border: '5px solid white',
               borderRadius: '0.5rem',
               padding: '0rem',
               cursor: 'pointer'

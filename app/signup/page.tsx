@@ -61,7 +61,8 @@ export default function SignupPage() {
       <form
         onSubmit={handleSubmit}
         className="bg-white p-8 rounded-lg shadow-md w-full max-w-lg space-y-4"
-      >
+        >
+        <br/><br/>
         <h2 className="text-2xl font-bold text-center mb-4">Sign Up</h2>
 
         <div>
