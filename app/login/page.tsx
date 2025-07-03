@@ -2,6 +2,7 @@
 
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { useRouter } from 'next/navigation';
+import { emit } from 'process';
 import { useState } from 'react';
 
 
@@ -27,6 +28,12 @@ export default function LoginPage() {
     }
 
     setLoading(true);
+
+    const response = await fetch('/https://mathgptdevs25.pythonanywhere.com/create_user', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({email, password}),
+    });
 
     const { error } = await supabase.auth.signInWithPassword({ email, password });
 

@@ -8,6 +8,7 @@ export default function SignupPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [userType, setUserType] = useState('');
   const [formData, setFormData] = useState({
+    email: '',
     username: '',
     password: '',
     name: '',
@@ -34,25 +35,29 @@ export default function SignupPage() {
     e.preventDefault();
     setLoading(true);
 
-    const response = await fetch('/create_user', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(formData),
+    const form = new FormData();
+    Object.entries(formData).forEach(([key, value]) => {
+      form.append(key, value);
     });
 
-    const result = await response.text();
+    const response = await fetch('https://mathgptdevs25.pythonanywhere.com/create_user', {
+      method: 'POST',
+      body: form, // no need for headers; browser sets correct Content-Type
+    });
     setLoading(false);
 
-    if (result.toLowerCase().includes('success')) {
+    const result = await response.text(); // Read plain text response
+    alert(result); // Show it in an alert box
+
+    // Optional redirect if successful
+    if (result.toLowerCase().includes('User created')) {
       if (formData.user_type === 'student') {
-        router.push('/dashboard/student');
+        router.push('/welcome');
       } else if (formData.user_type === 'tutor') {
-        router.push('/dashboard/tutor');
+        router.push('/dashboard');
       } else {
         router.push('/dashboard');
       }
-    } else {
-      alert(result);
     }
   };
 
@@ -64,6 +69,11 @@ export default function SignupPage() {
         >
         <br/><br/>
         <h2 className="text-2xl font-bold text-center mb-4">Sign Up</h2>
+
+        <div>
+          <label className="block mb-1">Email</label>
+          <input name="email" value={formData.email} onChange={handleChange} type="email" required className="w-full px-3 py-2 border border-gray-300 rounded-md" />
+        </div>
 
         <div>
           <label className="block mb-1">Username</label>
