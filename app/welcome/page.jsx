@@ -68,7 +68,7 @@ const HomePage = () => {
 
           <div style={{ display: 'flex', gap: '2rem' }}>
             <button onClick={() => navigate('/lectures')} style={buttonStyle}>New Lecture</button>
-            <button onClick={() => navigate('/newproblems')} style={buttonStyle}>New Problem</button>
+            <button onClick={() => navigate('/newproblem')} style={buttonStyle}>New Problem</button>
           </div>
         </div>
       </main>
