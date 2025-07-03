@@ -74,8 +74,8 @@ export default function NewProblemPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem', borderBottom: '1px solid black' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <img src={logo} alt="MathGPT Logo" style={{ height: '30px' }} />
-          <button style={navBtnStyle} onClick={() => window.location.href = '/lecture'}>Lectures</button>
-          <button style={navBtnStyle} onClick={() => window.location.href = '/problemlist'}>Problems</button>
+          <button style={navBtnStyle} onClick={() => window.location.href = '/lectures'}>Lectures</button>
+          <button style={navBtnStyle} onClick={() => window.location.href = '/problems'}>Problems</button>
         </div>
         <button style={navBtnStyle} onClick={() => window.location.href = '/login'}>Login</button>
       </div>
@@ -146,7 +146,7 @@ export default function NewProblemPage() {
 
           <div style={{ display: 'flex', gap: '1rem' }}>
             <button onClick={handleSave} style={{ ...navBtnStyle, backgroundColor: 'blue', color: 'white' }}>Save</button>
-            <button onClick={() => window.location.href = '/problemlist'} style={navBtnStyle}>Cancel</button>
+            <button onClick={() => window.location.href = '/problems'} style={navBtnStyle}>Cancel</button>
           </div>
 
           {showModal && (

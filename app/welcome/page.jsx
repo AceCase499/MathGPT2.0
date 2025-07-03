@@ -67,8 +67,8 @@ const HomePage = () => {
           </div>
 
           <div style={{ display: 'flex', gap: '2rem' }}>
-            <button onClick={() => navigate('/lectures/new')} style={buttonStyle}>New Lecture</button>
-            <button onClick={() => navigate('/problems/new')} style={buttonStyle}>New Problem</button>
+            <button onClick={() => navigate('/lectures')} style={buttonStyle}>New Lecture</button>
+            <button onClick={() => navigate('/newproblems')} style={buttonStyle}>New Problem</button>
           </div>
         </div>
       </main>
