@@ -17,8 +17,14 @@ from sqlalchemy import create_engine, String, Text, select, ForeignKey, Integer
 from sqlalchemy.orm import DeclarativeBase, Session, mapped_column, Mapped, relationship
 from flask import Flask, render_template, request, redirect
 from datetime import datetime
+from dotenv import load_dotenv  
+from lecture import lecture_bp
+import os
 
-engine = create_engine("no api key for you")
+load_dotenv()
+
+database_url = os.environ.get("DATABASE_URL")
+engine = create_engine(database_url)
 app = Flask(__name__)
 
 # Base class for declarative models
