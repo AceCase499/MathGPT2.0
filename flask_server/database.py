@@ -18,8 +18,14 @@ from sqlalchemy.orm import DeclarativeBase, Session, mapped_column, Mapped, rela
 from flask import Flask, render_template, request, redirect
 from flask_cors import CORS
 from datetime import datetime
+from dotenv import load_dotenv  
+from lecture import lecture_bp
+import os
 
-engine = create_engine("postgresql://postgres:J5FjyNbzKHuPK6mK@db.mpgvjrzxvizjnyxdyntp.supabase.co:5432/postgres", echo = True)
+load_dotenv()
+
+database_url = os.environ.get("DATABASE_URL")
+engine = create_engine(database_url)
 app = Flask(__name__)
 CORS(app)
 
