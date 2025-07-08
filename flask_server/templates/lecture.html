@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>MathGPT Lecture Tester</title>
+  <script>
+    let lectureId = null;
+
+    async function startLecture() {
+      const topic = document.getElementById('topic').value;
+      const studentId = document.getElementById('student_id').value;
+      const res = await fetch(`/mathgpt?topic=${encodeURIComponent(topic)}&student_id=${studentId}`);
+      const data = await res.json();
+      lectureId = data.lecture_id;
+
+      const chatBox = document.getElementById('chat');
+      chatBox.innerHTML = `<div><strong>AI:</strong> ${data.lecture}</div>`;
+      document.getElementById('followupSection').style.display = 'block';
+    }
+
+    async function sendFollowup() {
+      const question = document.getElementById('followup').value;
+      const res = await fetch('/mathgpt/followup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lecture_id: lectureId, question: question })
+      });
+      const data = await res.json();
+
+      const chatBox = document.getElementById('chat');
+      chatBox.innerHTML += `<div><strong>You:</strong> ${question}</div>`;
+      chatBox.innerHTML += `<div><strong>AI:</strong> ${data.answer}</div>`;
+      document.getElementById('followup').value = '';
+    }
+  </script>
+</head>
+<body>
+  <h2>Start a New Lecture</h2>
+  <input type="text" id="student_id" placeholder="Student ID"><br><br>
+  <input type="text" id="topic" placeholder="Topic">
+  <button onclick="startLecture()">Start Lecture</button>
+
+  <div id="chat" style="margin-top: 20px; padding: 10px; border: 1px solid #ccc;"></div>
+
+  <div id="followupSection" style="display:none; margin-top: 20px;">
+    <input type="text" id="followup" placeholder="Ask a follow-up">
+    <button onclick="sendFollowup()">Send</button>
+  </div>
+</body>
+</html>

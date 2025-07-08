@@ -19,6 +19,7 @@ from flask import Flask, render_template, request, redirect
 from flask_cors import CORS
 from datetime import datetime
 from dotenv import load_dotenv  
+from lecture import lecture_bp
 import os
 
 load_dotenv()
@@ -26,118 +27,8 @@ load_dotenv()
 database_url = os.environ.get("DATABASE_URL")
 engine = create_engine(database_url)
 app = Flask(__name__)
+app.register_blueprint(lecture_bp)
 CORS(app)
-
-# Base class for declarative models
-class Base(DeclarativeBase):
-    pass
-
-# Default User class for basically everyone
-class User(Base):
-    __tablename__ = "user"
-    id: Mapped[int] = mapped_column(primary_key=True)
-    user_type: Mapped[str]
-    email: Mapped[str]
-    district: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-    age: Mapped[Optional[int]] = mapped_column(String, nullable=True)
-    name: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-
-    # Relationship to link User with User_Login
-    __mapper_args__ = {
-        "polymorphic_identity": "User",
-        "polymorphic_on": "user_type",
-    }
-
-    def __repr__(self):
-        return f"User(id={self.id}, name={self.username})"
-
-# Side class that corresponds to User that includes login information
-class User_Login(Base):
-    __tablename__ = "user_login"
-    id: Mapped[int] = mapped_column(ForeignKey("user.id"), primary_key=True)
-    username: Mapped[str] = mapped_column(String, unique=True, nullable=False)
-    password: Mapped[str] = mapped_column(String, nullable=False)
-
-# Tutor class
-class Tutor(User):
-    __tablename__ = "tutor"
-    id: Mapped[int] = mapped_column(ForeignKey("user.id"), primary_key=True)
-    subjects: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-
-    # Relationship to link Tutor with Student
-    students: Mapped[List["Student"]] = relationship(
-        back_populates="tutor",
-        foreign_keys="Student.tutor_id"
-    )
-
-    __mapper_args__ = {
-        "polymorphic_identity": "Tutor",
-    }
-
-    def __repr__(self):
-        return f"Tutor(id={self.id}, username={self.username})"
-
-# Student class
-class Student(User):
-    __tablename__ = "student"
-    id: Mapped[int] = mapped_column(ForeignKey("user.id"), primary_key=True)
-    teacher_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    tutor_id: Mapped[Optional[int]] = mapped_column(ForeignKey("tutor.id"), nullable=True)
-    grade: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    staring_assessment: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    current_subject: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-    progress_percentage: Mapped[Optional[float]] = mapped_column(String, nullable=True)
-
-    # Relationship to link Student with Tutor
-    tutor: Mapped[Optional["Tutor"]] = relationship(
-        back_populates="students",
-        foreign_keys=[tutor_id]
-    )
-
-    lectures: Mapped[List["Lectures"]] = relationship(
-        back_populates="students",
-        foreign_keys="Lectures.student_id"
-    )
-
-    __mapper_args__ = {
-        "polymorphic_identity": "Student",
-    }
-
-    def __repr__(self):
-        return f"Student(id={self.id}, username={self.username})"
-
-class Lectures(Base):
-    __tablename__ = "lectures"
-    id: Mapped[int] = mapped_column(primary_key=True)
-    student_id: Mapped[int] = mapped_column(ForeignKey("student.id"))
-    title: Mapped[str] = mapped_column(String(50), default="Untitled Lecture")
-    topic: Mapped[str] = mapped_column(String)
-    subtopic: Mapped[str] = mapped_column(String)
-    content: Mapped[str] = mapped_column(Text)
-
-    students: Mapped[List["Student"]] = relationship(
-        back_populates="lectures",
-        foreign_keys="Lectures.student_id"
-    )
-
-    students: Mapped["Student"] = relationship(back_populates="lectures")
-    chat_messages: Mapped[List["LectureChat"]] = relationship(back_populates="lecture")
-
-    def __repr__(self):
-        return f"Lecture(id={self.id}, title={self.title})"
-
-class LectureChat(Base):
-    __tablename__ = "lecture_chat"
-    id: Mapped[int] = mapped_column(primary_key=True)
-    lecture_id: Mapped[int] = mapped_column(ForeignKey("lectures.id"))
-    sender: Mapped[str] = mapped_column(String)  # "student" or "ai"
-    message: Mapped[str] = mapped_column(Text)
-    timestamp: Mapped[Optional[str]] = mapped_column(String)
-
-    lecture: Mapped["Lectures"] = relationship(back_populates="chat_messages")
-
-Base.metadata.create_all(engine)
-engine.dispose()
 
 # Homepage
 @app.route('/')
