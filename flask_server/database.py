@@ -16,16 +16,12 @@ from typing import Optional, List
 from sqlalchemy import create_engine, String, Text, select, ForeignKey, Integer
 from sqlalchemy.orm import DeclarativeBase, Session, mapped_column, Mapped, relationship
 from flask import Flask, render_template, request, redirect
+from flask_cors import CORS
 from datetime import datetime
-from dotenv import load_dotenv  
-from lecture import lecture_bp
-import os
 
-load_dotenv()
-
-database_url = os.environ.get("DATABASE_URL")
-engine = create_engine(database_url)
+engine = create_engine("postgresql://postgres:J5FjyNbzKHuPK6mK@db.mpgvjrzxvizjnyxdyntp.supabase.co:5432/postgres", echo = True)
 app = Flask(__name__)
+CORS(app)
 
 # Base class for declarative models
 class Base(DeclarativeBase):
@@ -36,6 +32,7 @@ class User(Base):
     __tablename__ = "user"
     id: Mapped[int] = mapped_column(primary_key=True)
     user_type: Mapped[str]
+    email: Mapped[str]
     district: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     age: Mapped[Optional[int]] = mapped_column(String, nullable=True)
     name: Mapped[Optional[str]] = mapped_column(String, nullable=True)
@@ -45,7 +42,7 @@ class User(Base):
         "polymorphic_identity": "User",
         "polymorphic_on": "user_type",
     }
-    
+
     def __repr__(self):
         return f"User(id={self.id}, name={self.username})"
 
@@ -64,7 +61,7 @@ class Tutor(User):
 
     # Relationship to link Tutor with Student
     students: Mapped[List["Student"]] = relationship(
-        back_populates="tutor", 
+        back_populates="tutor",
         foreign_keys="Student.tutor_id"
     )
 
@@ -93,7 +90,7 @@ class Student(User):
     )
 
     lectures: Mapped[List["Lectures"]] = relationship(
-        back_populates="students", 
+        back_populates="students",
         foreign_keys="Lectures.student_id"
     )
 
@@ -114,7 +111,7 @@ class Lectures(Base):
     content: Mapped[str] = mapped_column(Text)
 
     students: Mapped[List["Student"]] = relationship(
-        back_populates="lectures", 
+        back_populates="lectures",
         foreign_keys="Lectures.student_id"
     )
 
@@ -135,8 +132,9 @@ class LectureChat(Base):
     lecture: Mapped["Lectures"] = relationship(back_populates="chat_messages")
 
 Base.metadata.create_all(engine)
+engine.dispose()
 
-# Homepage 
+# Homepage
 @app.route('/')
 def home():
     return render_template('home.html')
@@ -159,6 +157,7 @@ def create_user():
                     user = Student(
                         user_type="Student",
                         name=request.form.get('name'),
+                        email = request.form.get('email'),
                         district=request.form.get('district'),
                         age=request.form.get('age'),
                         teacher_id=None,
@@ -171,6 +170,7 @@ def create_user():
                 elif user_type == 'tutor':
                     user = Tutor(
                         user_type="Tutor",
+                        email = request.form.get('email'),
                         name=request.form.get('name'),
                         district=request.form.get('district'),
                         age=request.form.get('age'),
@@ -179,6 +179,7 @@ def create_user():
                 else:
                     user = User(
                         user_type="User",
+                        email = request.form.get('email'),
                         name=request.form.get('name'),
                         district=request.form.get('district'),
                         age=request.form.get('age')
@@ -195,7 +196,7 @@ def create_user():
                 session.add(login_info)
                 session.commit()
 
-            return f"User created successfully with ID: {user.id}"
+            return "User created successfully"
         except Exception as e:
             return f"Error: {str(e)}"
     return "User created"
@@ -244,7 +245,7 @@ def add_chat_message():
             )
             session.add(new_lecture)
             session.commit()
-            lecture_id = new_lecture.id     
+            lecture_id = new_lecture.id
         else:
             lecture_id = int(lecture_id)
 
