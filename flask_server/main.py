@@ -21,6 +21,7 @@ from datetime import datetime
 from dotenv import load_dotenv  
 from lecture import lecture_bp
 import os
+from database import User, Student, Tutor, User_Login, Lectures, LectureChat
 
 load_dotenv()
 
