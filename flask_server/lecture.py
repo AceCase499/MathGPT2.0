@@ -3,67 +3,108 @@ from openai import OpenAI
 from datetime import datetime
 import uuid
 from flask import Blueprint
+from dotenv import load_dotenv
+import os
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session
+from database import Lectures, LectureChat, Student
 
-client = OpenAI(api_key="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")
+load_dotenv()
+
+client = OpenAI(api_key=os.environ.get("GPT_API"))
+database_url = os.environ.get("DATABASE_URL")
+engine = create_engine(database_url)
 
 # Create a Flask application object
 lecture_bp = Blueprint('lecture', __name__)
 
-# Saving the context of each user's conversation
-# Can be replaced by the database
-lecture_store = {}
-
 # Create a endpoint
 @lecture_bp.route('/mathgpt', methods=['GET'])
 def start_lecture():
-    session_id = session_id = str(uuid.uuid4())  # unique session
-    # Extract parameters from the URL passed from the front end
     topic = request.args.get('topic')
+    student_id = request.args.get('student_id')
 
-    if not topic:
-        return 'Please give a topic', 400
+    if not topic or not student_id:
+        return jsonify({'error': 'Missing topic or student_id'}), 400
 
     prompt = f"Give a multi-paragraph lecture on: {topic}"
-    
     messages = [{"role": "user", "content": prompt}]
+
     response = client.chat.completions.create(
         model="gpt-4o",
         messages=messages
     )
     content = response.choices[0].message.content
     messages.append({"role": "assistant", "content": content})
-    
-    lecture_store[session_id] = {
-        "topic": topic,
-        "messages": messages,
-        "is_done": False,
-        "created_at": datetime.utcnow(),
-        "updated_at": datetime.utcnow()
-    }
 
-    return jsonify({"session_id": session_id, "lecture": content})
+    with Session(engine) as session:
+        student = session.get(Student, int(student_id))
+        if not student:
+            return jsonify({"error": f"Student with id {student_id} not found"}), 404
+
+        new_lecture = Lectures(
+            student_id=int(student_id),
+            title="Untitled Chat Lecture",
+            topic=topic,
+            subtopic="Chat Session",
+            content=""
+        )
+        session.add(new_lecture)
+        session.commit()
+
+        for msg in messages:
+            chat = LectureChat(
+                lecture_id=new_lecture.id,
+                sender="student" if msg["role"] == "user" else "ai",
+                message=msg["content"],
+                timestamp=datetime.utcnow()
+            )
+            session.add(chat)
+
+        session.commit()
+        lecture_id = new_lecture.id
+
+    return jsonify({"lecture_id": lecture_id, "lecture": content})
 
 
 @lecture_bp.route('/mathgpt/followup', methods=['POST'])
 def followup():
     data = request.json
-    session_id = data.get('session_id')
+    lecture_id = data.get('lecture_id')
     question = data.get('question')
 
-    session = lecture_store.get(session_id)
-    if not session:
-        return 'Session not found', 404
-    if session['is_done']:
-        return 'Lecture is marked complete. No more questions allowed.', 403
+    if not lecture_id or not question:
+        return jsonify({'error': 'Missing lecture_id or question'}), 400
 
-    session['messages'].append({"role": "user", "content": question})
-    response = client.chat.completions.create(
-        model="gpt-4o",
-        messages=session['messages']
-    )
-    answer = response.choices[0].message.content
-    session['messages'].append({"role": "assistant", "content": answer})
-    session['updated_at'] = datetime.utcnow()
+    with Session(engine) as session:
+        prev_messages = session.query(LectureChat).filter_by(lecture_id=lecture_id).order_by(LectureChat.timestamp).all()
+        messages = []
+        for msg in prev_messages:
+            messages.append({"role": "user" if msg.sender == "student" else "assistant", "content": msg.message})
+
+        messages.append({"role": "user", "content": question})
+
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=messages
+        )
+        answer = response.choices[0].message.content
+
+        chat_user = LectureChat(
+            lecture_id=lecture_id,
+            sender="student",
+            message=question,
+            timestamp=datetime.utcnow()
+        )
+        chat_ai = LectureChat(
+            lecture_id=lecture_id,
+            sender="ai",
+            message=answer,
+            timestamp=datetime.utcnow()
+        )
+
+        session.add_all([chat_user, chat_ai])
+        session.commit()
 
     return jsonify({"answer": answer})
 
@@ -80,63 +121,57 @@ def complete():
     return jsonify({"message": "Lecture marked as complete"})
 
 
-# TC7.4 save past lecture data
 @lecture_bp.route('/mathgpt/session', methods=['GET'])
 def get_session():
-    session_id = request.args.get('session_id')
-    session = lecture_store.get(session_id)
-    if not session:
-        return jsonify({"error": "Session not found"}), 404
-
-    return jsonify({
-        "topic": session["topic"],
-        "messages": session["messages"],
-        "is_done": session["is_done"]
-    })
+    lecture_id = request.args.get('lecture_id')
+    with Session(engine) as session:
+        chats = session.query(LectureChat).filter_by(lecture_id=lecture_id).order_by(LectureChat.timestamp).all()
+        messages = [{"sender": chat.sender, "message": chat.message, "timestamp": chat.timestamp} for chat in chats]
+        return jsonify(messages)
 
 
-# TC7.5: get lecture history list
 @lecture_bp.route('/mathgpt/lectures', methods=['GET'])
 def list_lectures():
-    result = []
-    for session_id, info in lecture_store.items():
-        result.append({
-            "session_id": session_id,
-            "topic": info["topic"],
-            "created_at": info["created_at"].isoformat(),
-            "updated_at": info["updated_at"].isoformat()
-        })
-    return jsonify(result)
+    student_id = request.args.get('student_id')
+    with Session(engine) as session:
+        lectures = session.query(Lectures).filter_by(student_id=student_id).all()
+        result = [{
+            "lecture_id": lec.id,
+            "topic": lec.topic,
+            "created_at": lec.chat_messages[0].timestamp.isoformat() if lec.chat_messages else None,
+            "updated_at": lec.chat_messages[-1].timestamp.isoformat() if lec.chat_messages else None
+        } for lec in lectures]
+        return jsonify(result)
 
 
-# TC7.6: rename a lecture
 @lecture_bp.route('/mathgpt/rename', methods=['POST'])
 def rename():
     data = request.json
-    session_id = data.get('session_id')
+    lecture_id = data.get('lecture_id')
     new_title = data.get('new_title')
 
-    session = lecture_store.get(session_id)
-    if not session:
-        return 'Session not found', 404
-    session['topic'] = new_title
-    session['updated_at'] = datetime.utcnow()
-    return jsonify({"message": "Lecture renamed"})
+    with Session(engine) as session:
+        lecture = session.get(Lectures, lecture_id)
+        if not lecture:
+            return jsonify({'error': 'Lecture not found'}), 404
+        lecture.title = new_title
+        session.commit()
+        return jsonify({'message': 'Lecture renamed'})
 
 
-# TC7.7: delete a lecture
 @lecture_bp.route('/mathgpt/delete', methods=['POST'])
 def delete():
     data = request.json
-    session_id = data.get('session_id')
-
-    if session_id in lecture_store:
-        del lecture_store[session_id]
-        return jsonify({"message": "Lecture deleted"})
-    return 'Session not found', 404
+    lecture_id = data.get('lecture_id')
+    with Session(engine) as session:
+        lecture = session.get(Lectures, lecture_id)
+        if not lecture:
+            return jsonify({'error': 'Lecture not found'}), 404
+        session.delete(lecture)
+        session.commit()
+        return jsonify({'message': 'Lecture deleted'})
 
 # show on the front end
-from flask import send_from_directory
-@lecture_bp.route('/home')
+@lecture_bp.route('/lectures_page')
 def frontend():
-    return render_template('home.html')
+    return render_template('lecture.html')
