@@ -37,22 +37,22 @@ $$
   // an array to keep track of every step toward solving the current equation
   //resets when a new equation is entered
 
-  const [ChatStream, setChatStream] = useState([{role: "assistant", content: "Let's begin a new math lesson!"}])
+  const [ChatStream, setChatStream] = useState([{role: "assistant", content: "Let's begin a new math lecture!"}])
   const [SessionArchive, setSessionArchive] = useState(//the user's previous sessions will be loaded here
     [
-      {id: 1010, name: "First Lesson", chat: [
+      {id: 1010, name: "First Lecture", chat: [
           {role: "assistant", content: "What will you learn about?"}, 
           {role: "user", content: "Derivatives"}, 
           {role: "assistant", content: "I will now explain derivatives...."}
                                   ]
       }, 
-      {id: 2020, name: "Second Lesson", chat: [
+      {id: 2020, name: "Second Lecture", chat: [
           {role: "assistant", content: "What will you learn about?"}, 
           {role: "user", content: "Logorithms"}, 
           {role: "assistant", content: "Let's begin!"}
                                   ]
       },
-      {id: 3030, name: "The Other Lesson", chat: [
+      {id: 3030, name: "The Other Lecture", chat: [
           {role: "assistant", content: "What will you learn about?"}, 
           {role: "user", content: "Long Division"}, 
           {role: "assistant", content: "This is what division is..."}
@@ -158,7 +158,7 @@ $$
       //save new chat to conversation
       ttginp(true) //enable chat bar
     } else{
-      alert("Please make sure to select a topic!")
+      alert("Please make sure the topic field is not empty before starting a lecture!")
     }
   }
 
@@ -173,6 +173,23 @@ $$
         setCurrentBotResponse("");
       }
       const objective = "lecture"
+      ws.send(JSON.stringify({ messages: ChatStream, objective, Topic }));
+      setInputText("");
+      ttginp(true) //enable chat bar
+    }
+  }
+
+  const lectureContinued = async (e: React.FormEvent) => {
+    e.preventDefault() // Prevent form default behavior
+    tggLecture(true) // Toggle lecture state
+    ttginp(false) // disable chat bar
+
+    if (ws) {
+      if (currentBotResponse.trim()) {
+        setChatStream((prev) => [...prev, { role: "assistant", content: currentBotResponse }]);
+        setCurrentBotResponse("");
+      }
+      const objective = "continueLecture"
       ws.send(JSON.stringify({ messages: ChatStream, objective, Topic }));
       setInputText("");
       ttginp(true) //enable chat bar
@@ -221,12 +238,13 @@ $$
     }
   }
 
-  function loadConvo(indexx){
-    saveConvo()
+  function loadLecture(indexx){
+    saveLecture()
     setCurrentSessionID(SessionArchive[indexx].id)
     let loadedChat = SessionArchive[indexx].chat
     setChatStream(loadedChat)
     setLoadedSessionName(SessionArchive[indexx].name)
+    setCurrentBotResponse("")
     //alert(currentSessionID)
   }
 
@@ -273,7 +291,7 @@ $$
     }
   }
 
-  function getConvoIDs(){
+  function getLectureIDs(){
     let IDs = []
       SessionArchive.forEach(convo => {
         IDs.push(convo.id)
@@ -281,21 +299,21 @@ $$
       return(IDs)
   }
 
-  function newConvo(){
-    saveConvo()
+  function newLecture(){
+    saveLecture()
     let newTopic = prompt(
-      'Name this Lesson. \nWhat do you want to study?', //prompt
-      `New Lesson - ${new Date().toDateString()}` //placeholder
+      'Name this Lecture. \nWhat do you want to study?', //prompt
+      `New Lecture - ${new Date().toDateString()}` //placeholder
     )
     setTopic(newTopic)
 
     setCurrentSessionID(0)
-    setChatStream([{role: "assistant", content: "Let's begin a new math lesson!"}])
+    setChatStream([{role: "assistant", content: "Let's begin a new math lecture!"}])
   }
 
 
-  function saveConvo(){
-    const IDs = getConvoIDs()
+  function saveLecture(){
+    const IDs = getLectureIDs()
     if (IDs.includes(currentSessionID)){//if this is true, do not create a new convo, overwrite the existing one
       let tempArchive = SessionArchive;
       let indexById = tempArchive.findIndex(obj => obj.id === currentSessionID);
@@ -314,7 +332,7 @@ $$
     //now we can confirm this ID is unique
 
     let tempArchive = SessionArchive
-    tempArchive.push({id: parseInt(newID), name: `Untitled Lesson - ${new Date().toDateString()}`, chat: ChatStream})
+    tempArchive.push({id: parseInt(newID), name: `Untitled Lecture - ${new Date().toDateString()}`, chat: ChatStream})
     setSessionArchive(tempArchive)
 
   }
@@ -324,12 +342,12 @@ $$
       <NavigationBar/>
       <div className="splitsub left bg-slate-300 text-xl h-full">
         {/* This div holds the left panel */}
-        <button className='underline cursor-pointer underline-offset-8' onClick={()=>newConvo()}>Start a New Lesson</button>
+        <button className='underline cursor-pointer underline-offset-8' onClick={()=>newLecture()}>Start a New Lecture</button>
         <h1 className="text-blue-600 px-3 pt-3 font-extrabold">Previous Sessions:</h1>
         {/*Previous Topics loaded in from database are placed here*/}
         {!updating && SessionArchive.map((cht, index) => (
             <div id={index.toString()} key={index} style={{padding: 4, borderRadius: 20}} className='parent flex cursor-pointer bg-transparent hover:bg-indigo-300'>
-            <p onClick={()=> loadConvo(index)} className='font-bold'>{cht.name}</p>
+            <p onClick={()=> loadLecture(index)} className='font-bold'>{cht.name}</p>
             <div className='child space-x-2'>
               <svg onClick={()=>renameConvo(index)} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-pencil-line-icon lucide-pencil-line"><path d="M12 20h9"/><path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z"/><path d="m15 5 3 3"/></svg>
               <svg onClick={()=>deleteConvo(index)} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#e32400" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide cursor-pointer lucide-trash2-icon lucide-trash-2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
@@ -350,10 +368,6 @@ $$
             </button>
           )}
           <br />
-          {Lecture && (
-            <h1 className="font-style: italic text-cyan-400">{'(lecture mode)'}</h1>
-          )}
-
           <div ref={chatContainer} style={{boxShadow: "0 0 30px rgb(160, 160, 160)", flex: 1, overflowY: "scroll", height: "55vh"}}> {/* //This div streams the response in real time, couldn't finish it in time */}
             {ChatStream.map((txt, index) => (
             <div id={index.toString()} key={index} className={getBubbleStyle(txt.role, false)}> {/* Setting the id prevents warnings/errors from the map function, otherwise it in not important*/}
@@ -375,13 +389,15 @@ $$
           </div>
         <br/>
           <div /* style={{justifyContent: "center", alignSelf: "center"}} className='w-full fixed bottom-10' */>
-            <form onSubmit={startLecture}>
-              <div>
-                <button className="cursor-pointer rounded-lg border sm:block bg-white p-1 hover:bg-zinc-200">
-                  Start Lecture
-                </button>
-              </div>
-            </form>
+            <div style={{ display: 'flex', gap: '1rem', alignItems: "center", justifyContent: "center" }}>
+              <button onClick={startLecture} className="cursor-pointer rounded-lg border sm:block bg-white p-1 hover:bg-zinc-200">
+                Start Lecture
+              </button>
+              {Lecture && 
+              <button onClick={lectureContinued} className="cursor-pointer rounded-lg border sm:block bg-white p-1 hover:bg-zinc-200">
+                Continue Lecture
+              </button>}
+            </div>
             <form onSubmit={generalMessage}>
               {/* handleSubmit and handleInputChange are used to stream ai response in real time*/}
               <input
