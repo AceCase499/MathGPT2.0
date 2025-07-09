@@ -4,7 +4,7 @@ from datetime import datetime
 import uuid
 
 app = Flask(__name__)
-client = OpenAI(api_key="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")
+client = OpenAI()
 
 # Stores for problems and lectures
 problem_sessions = {}

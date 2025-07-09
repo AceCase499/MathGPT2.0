@@ -10,7 +10,7 @@ export default function LoginPage() {
   const supabase = useSupabaseClient();
   const router = useRouter();
 
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [attempts, setAttempts] = useState(3);
@@ -38,7 +38,7 @@ export default function LoginPage() {
     setLoading(true);
 
     const form = new FormData();
-    Object.entries({username: email, password: password}).forEach(([key, value]) => {
+    Object.entries({username: username, password: password}).forEach(([key, value]) => {
       form.append(key, value);
     });
 
@@ -80,12 +80,12 @@ export default function LoginPage() {
         {attempts == 0 && (
           <h2 className="text-xl italic mb-4 text-center" style={{color: "red"}}>Too many login attempts.  Please try again later.</h2>)}
 
-        <label className="block mb-2 text-sm font-medium">Email</label>
+        <label className="block mb-2 text-sm font-medium">Username</label>
         <input
           type="text"
           disabled={!(attempts > 0)}
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
           className="w-full mb-4 px-3 py-2 border border-gray-300 rounded-md"
           required
         />
