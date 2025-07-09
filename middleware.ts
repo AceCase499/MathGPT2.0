@@ -9,7 +9,8 @@ export async function middleware(req: NextRequest) {
 
   const { data: { session } } = await supabase.auth.getSession();
 
-  const protectedRoutes = ['/dashboard', '/lectures'];
+  const protectedRoutes = ['/dashboard'];
+  //const protectedRoutes = ['/dashboard', '/lectures'];
 
   if (protectedRoutes.some((path) => req.nextUrl.pathname.startsWith(path))) {
     if (!session) {
@@ -21,5 +22,6 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/lectures/:path*'],
+  matcher: ['/dashboard/:path*'],
+  //matcher: ['/dashboard/:path*', '/lectures/:path*'],
 };
