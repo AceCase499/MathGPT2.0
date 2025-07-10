@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 # Automatically read the .env file in the root directory.
 load_dotenv()
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+client = OpenAI(api_key= os.environ.get("GPT_API"))
 
 # Create a Flask application object
 problem_bp = Blueprint('problem', __name__)

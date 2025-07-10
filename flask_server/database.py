@@ -99,6 +99,11 @@ class Student(User):
         foreign_keys="Lectures.student_id"
     )
 
+    problem_sessions: Mapped[List["Problem_Sessions"]] = relationship(
+        back_populates="students",
+        foreign_keys="Problem_Sessions.student_id"
+    )
+
     __mapper_args__ = {
         "polymorphic_identity": "Student",
     }
@@ -135,6 +140,27 @@ class LectureChat(Base):
     timestamp: Mapped[Optional[str]] = mapped_column(String)
 
     lecture: Mapped["Lectures"] = relationship(back_populates="chat_messages")
+
+class Problem_Sessions(Base):
+    __tablename__ = "problem_sessions"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    student_id: Mapped[int] = mapped_column(ForeignKey("student.id"))
+    title: Mapped[str] = mapped_column(String)
+    topic: Mapped[str] = mapped_column(String)
+    source: Mapped[str] = mapped_column(String)
+    created_at: Mapped[Optional[str]] = mapped_column(String)
+    solution: Mapped[str] = mapped_column(Text)
+    hint: Mapped[str] = mapped_column(Text)
+    user_answer: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    is_done: Mapped[bool] = mapped_column(default=False)
+
+    students: Mapped[List["Student"]] = relationship(
+        back_populates="problem_sessions",
+        foreign_keys="Problem_Sessions.student_id"
+    )
+
+    def __repr__(self):
+        return f"Problem_Session(id={self.id}, title={self.title})"
 
 Base.metadata.create_all(engine)
 engine.dispose()
