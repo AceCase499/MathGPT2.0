@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>MathGPT Problem Solver</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+
+        section {
+            margin-bottom: 24px;
+        }
+
+        h2 {
+            margin-top: 0;
+        }
+
+        label {
+            display: inline-block;
+            width: 140px;
+        }
+
+        input[type=text],
+        textarea {
+            width: 320px;
+            padding: 6px;
+        }
+
+        button {
+            margin: 6px 0;
+        }
+
+        .output {
+            background: #f0f0f0;
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 5px;
+            white-space: pre-wrap;
+        }
+
+        table {
+            border-collapse: collapse;
+            margin-top: 10px;
+            width: 100%;
+        }
+
+        th,
+        td {
+            border: 1px solid #ccc;
+            padding: 6px;
+            text-align: left;
+        }
+
+        tr:hover {
+            background-color: #f9f9f9;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>MathGPT Problem Solver</h1>
+
+    <section>
+        <h2>Start New Problem</h2>
+        <label><input type="radio" name="mode" value="topic" checked> From Topic</label>
+        <label><input type="radio" name="mode" value="lecture"> From Lecture</label><br>
+        <label>Topic or Lecture ID:</label>
+        <input type="text" id="inputField" placeholder="e.g. Calculus or lec-001"><br>
+        <button onclick="startProblem()">Generate Problem</button>
+    </section>
+
+    <section id="problemSection" style="display:none;">
+        <h2>Problem</h2>
+        <div id="question" class="output"></div>
+    </section>
+
+    <section id="actionsSection" style="display:none;">
+        <h4>Submit Your Answer</h4>
+        <textarea id="userAnswer" rows="3"></textarea><br>
+        <button onclick="submitAnswer()">Submit Answer</button>
+        <div id="feedback" class="output"></div>
+
+        <h3>Actions</h3>
+        <button onclick="getHint()">Get Hint</button>
+        <button onclick="getSolution()">Get Solution</button>
+
+        <div id="hint" class="output"></div>
+        <div id="solution" class="output"></div>
+
+        <h4>Ask Follow-up</h4>
+        <input type="text" id="followupInput" placeholder="e.g. Is there another method?">
+        <button onclick="askFollowup()">Ask</button>
+        <div id="followupResponse" class="output"></div>
+
+        <h4>Rename Session</h4>
+        <input type="text" id="renameInput" placeholder="New title...">
+        <button onclick="renameSession()">Rename</button>
+
+        <br><br>
+        <button onclick="completeSession()">Mark Complete</button>
+        <button onclick="deleteSession()">Delete Session</button>
+    </section>
+
+    <section>
+        <h2>Existing Sessions</h2>
+        <button onclick="loadSessions()">Refresh List</button>
+        <table>
+            <thead>
+                <tr>
+                    <th>Session ID</th>
+                    <th>Title</th>
+                    <th>Topic</th>
+                    <th>Source</th>
+                    <th>Created At</th>
+                </tr>
+            </thead>
+            <tbody id="sessionList"></tbody>
+        </table>
+    </section>
+
+    <script>
+        const api = (path) => `/mathgpt${path}`;
+        let currentSessionId = null;
+
+        function showSection(id) {
+            document.getElementById(id).style.display = 'block';
+        }
+
+        async function startProblem() {
+            const mode = document.querySelector('input[name="mode"]:checked').value;
+            const value = document.getElementById('inputField').value.trim();
+            const payload = { mode };
+            if (mode === 'topic') payload.topic = value;
+            else payload.lecture_session_id = value;
+
+            const res = await fetch(api('/problem/start'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (!res.ok) return alert(await res.text());
+
+            const { session_id, question } = await res.json();
+            currentSessionId = session_id;
+
+            document.getElementById('hint').textContent = '';
+            document.getElementById('solution').textContent = '';
+            document.getElementById('feedback').textContent = '';
+            document.getElementById('followupResponse').textContent = '';
+            document.getElementById('userAnswer').value = '';
+            document.getElementById('renameInput').value = '';
+            document.getElementById('followupInput').value = '';
+
+            document.getElementById('question').textContent = question;
+            showSection('problemSection');
+            showSection('actionsSection');
+            loadSessions();
+        }
+
+
+        async function getHint() {
+            const res = await fetch(api('/problem/hint'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ session_id: currentSessionId })
+            });
+            const { hint } = await res.json();
+            document.getElementById('hint').textContent = "Hint: " + hint;
+        }
+
+        async function getSolution() {
+            const res = await fetch(api('/problem/solution'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ session_id: currentSessionId })
+            });
+            const { solution } = await res.json();
+            document.getElementById('solution').textContent = "Solution:\n" + solution;
+        }
+
+        async function submitAnswer() {
+            const answer = document.getElementById('userAnswer').value;
+            const res = await fetch(api('/problem/answer'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ session_id: currentSessionId, answer })
+            });
+            const { feedback } = await res.json();
+            document.getElementById('feedback').textContent = feedback;
+        }
+
+        async function askFollowup() {
+            const question = document.getElementById('followupInput').value;
+            const res = await fetch(api('/problem/followup'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ session_id: currentSessionId, question })
+            });
+            const { answer } = await res.json();
+            document.getElementById('followupResponse').textContent = answer;
+        }
+
+        async function completeSession() {
+            await fetch(api('/problem/complete'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ session_id: currentSessionId })
+            });
+            alert('Session marked as complete');
+        }
+
+        async function renameSession() {
+            const new_title = document.getElementById('renameInput').value;
+            await fetch(api('/problem/rename'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ session_id: currentSessionId, new_title })
+            });
+            alert('Renamed');
+            loadSessions();
+        }
+
+        async function deleteSession() {
+            await fetch(api('/problem/delete'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ session_id: currentSessionId })
+            });
+            alert('Deleted');
+            currentSessionId = null;
+            location.reload();
+        }
+
+        async function loadSessions() {
+            const res = await fetch(api('/problem/list'));
+            const list = await res.json();
+            const tbody = document.getElementById('sessionList');
+            tbody.innerHTML = '';
+            list.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+      <td>${row.session_id}</td>
+      <td>${row.title}</td>
+      <td>${row.topic}</td>
+      <td>${row.source_type}</td>
+      <td>${new Date(row.created_at).toLocaleString()}</td>
+    `;
+                tr.onclick = async () => {
+                    currentSessionId = row.session_id;
+                    const res = await fetch(api('/problem/solution'), {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ session_id: currentSessionId })
+                    });
+                    const solutionData = await res.json();
+
+                    const res2 = await fetch(api('/problem/hint'), {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ session_id: currentSessionId })
+                    });
+                    const hintData = await res2.json();
+
+                    const questionText = row.title; // just a fallback
+                    const sessionRes = await fetch(api('/problem/list'));
+                    const sessions = await sessionRes.json();
+                    const selected = sessions.find(s => s.session_id === currentSessionId);
+
+                    document.getElementById('question').textContent = selected?.title || 'Problem loaded';
+                    document.getElementById('solution').textContent = "Solution:\n" + solutionData.solution;
+                    document.getElementById('hint').textContent = "Hint: " + hintData.hint;
+
+                    showSection('problemSection');
+                    showSection('actionsSection');
+                };
+
+                tbody.appendChild(tr);
+            });
+        }
+
+        loadSessions();
+    </script>
+</body>
+
+</html>
