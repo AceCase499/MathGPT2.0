@@ -20,6 +20,7 @@ from flask_cors import CORS
 from datetime import datetime
 from dotenv import load_dotenv  
 from lecture import lecture_bp
+from problem import problem_bp
 import os
 from database import User, Student, Tutor, User_Login, Lectures, LectureChat
 
@@ -29,6 +30,7 @@ database_url = os.environ.get("DATABASE_URL")
 engine = create_engine(database_url)
 app = Flask(__name__)
 app.register_blueprint(lecture_bp)
+app.register_blueprint(problem_bp)
 CORS(app)
 
 # Homepage
