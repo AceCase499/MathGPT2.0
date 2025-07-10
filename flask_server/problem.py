@@ -1,17 +1,26 @@
-from flask import Flask, request, jsonify
+import os
+from dotenv import load_dotenv
+from flask import Flask, request, jsonify, render_template, Blueprint
 from openai import OpenAI
 from datetime import datetime
 import uuid
+from database import engine, Lectures, LectureChat
+from sqlalchemy.orm import Session
 
-app = Flask(__name__)
-client = OpenAI()
+# Automatically read the .env file in the root directory.
+load_dotenv()
+
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+# Create a Flask application object
+problem_bp = Blueprint('problem', __name__)
 
 # Stores for problems and lectures
 problem_sessions = {}
-lecture_store = {}
+
 
 # TC8.1 & TC8.2 - Generate problem from topic or lecture
-@app.route('/mathgpt/problem/start', methods=['POST'])
+@problem_bp.route('/mathgpt/problem/start', methods=['POST'])
 def start_problem():
     data = request.json
     mode = data.get('mode', 'topic')  # "topic" or "lecture"
@@ -21,21 +30,39 @@ def start_problem():
     if mode == 'topic' and not topic:
         return 'Missing topic', 400
     if mode == 'lecture':
-        lecture = lecture_store.get(lecture_id)
-        if not lecture:
-            return 'Lecture session not found', 404
-        lecture_text = lecture['messages'][-1]['content']
-        topic = lecture['topic']
+        with Session(engine) as session:
+            
+            lecture = session.query(Lectures).filter_by(id=lecture_id).first()
+            if lecture is None:
+                return 'Lecture session not found', 404
+
+            last_msg = (
+                session.query(LectureChat)
+                .filter_by(lecture_id=lecture_id)
+                .order_by(LectureChat.timestamp.desc())
+                .first()
+            )
+            
+            lecture_text = last_msg.message if last_msg else lecture.content
+            topic = lecture.topic
+
         prompt = (
             "You are a math instructor. Based on the following lecture content, "
             "generate one challenging math problem. Respond with:\n"
-            "1. Problem statement\n2. Step-by-step solution\n3. Hint\n\n"
+            "### Problem\n### Solution\n### Hint\n\n"
             f"[Lecture Content]\n{lecture_text}"
         )
     else:
         prompt = (
-            f"Create one challenging math problem on: {topic}.\n"
-            "Return:\n1. Problem statement\n2. Step-by-step solution\n3. Hint"
+            f"You are a math instructor. Create a challenging math problem on: {topic}.\n"
+            "Return a clean, well-formatted markdown response without using bold labels like 'Problem Statement' or 'Step-by-step'.\n"
+            "Use the following format, and keep it readable:\n\n"
+            "### Problem\n"
+            "<problem content if needed>\n\n"
+            "### Solution\n"
+            "<solution steps, clearly explained>\n\n"
+            "### Hint\n"
+            "<a helpful hint>"
         )
 
     response = client.chat.completions.create(
@@ -44,11 +71,17 @@ def start_problem():
     )
     content = response.choices[0].message.content
 
-    parts = content.split("Solution:")
+    if "### Solution" not in content:
+        return f'Invalid format: missing solution section. Raw output:\n{content}', 500
+
+    parts = content.split("### Solution")
+    if len(parts) < 2:
+        return 'Invalid format: missing solution section', 500
     question = parts[0].strip()
-    solution_part = parts[1].split("Hint:") if "Hint:" in parts[1] else [parts[1], "No hint provided"]
-    solution = solution_part[0].strip()
-    hint = solution_part[1].strip()
+
+    solution_and_hint = parts[1].split("### Hint")
+    solution = solution_and_hint[0].strip()
+    hint = solution_and_hint[1].strip() if len(solution_and_hint) > 1 else "No hint provided"
 
     session_id = str(uuid.uuid4())
     problem_sessions[session_id] = {
@@ -69,7 +102,7 @@ def start_problem():
 
 
 # TC8.3 - Return hint
-@app.route('/mathgpt/problem/hint', methods=['POST'])
+@problem_bp.route('/mathgpt/problem/hint', methods=['POST'])
 def get_hint():
     data = request.json
     session_id = data.get('session_id')
@@ -80,7 +113,7 @@ def get_hint():
 
 
 # TC8.4 - Return step-by-step solution
-@app.route('/mathgpt/problem/solution', methods=['POST'])
+@problem_bp.route('/mathgpt/problem/solution', methods=['POST'])
 def get_solution():
     data = request.json
     session_id = data.get('session_id')
@@ -91,7 +124,7 @@ def get_solution():
 
 
 # TC8.5 - Submit answer and get feedback
-@app.route('/mathgpt/problem/answer', methods=['POST'])
+@problem_bp.route('/mathgpt/problem/answer', methods=['POST'])
 def submit_answer():
     data = request.json
     session_id = data.get('session_id')
@@ -118,7 +151,7 @@ def submit_answer():
 
 
 # TC8.6 - Follow-up questions
-@app.route('/mathgpt/problem/followup', methods=['POST'])
+@problem_bp.route('/mathgpt/problem/followup', methods=['POST'])
 def followup():
     data = request.json
     session_id = data.get('session_id')
@@ -143,7 +176,7 @@ def followup():
 
 
 # TC8.7 - End session
-@app.route('/mathgpt/problem/complete', methods=['POST'])
+@problem_bp.route('/mathgpt/problem/complete', methods=['POST'])
 def complete():
     data = request.json
     session_id = data.get('session_id')
@@ -155,7 +188,7 @@ def complete():
 
 
 # TC8.8 - Rename session
-@app.route('/mathgpt/problem/rename', methods=['POST'])
+@problem_bp.route('/mathgpt/problem/rename', methods=['POST'])
 def rename():
     data = request.json
     session_id = data.get('session_id')
@@ -168,7 +201,7 @@ def rename():
 
 
 # TC8.9 - Delete session
-@app.route('/mathgpt/problem/delete', methods=['POST'])
+@problem_bp.route('/mathgpt/problem/delete', methods=['POST'])
 def delete():
     data = request.json
     session_id = data.get('session_id')
@@ -179,7 +212,7 @@ def delete():
 
 
 # List all sessions
-@app.route('/mathgpt/problem/list', methods=['GET'])
+@problem_bp.route('/mathgpt/problem/list', methods=['GET'])
 def list_problems():
     result = []
     for sid, s in problem_sessions.items():
@@ -192,6 +225,8 @@ def list_problems():
         })
     return jsonify(result)
 
-# Start the Flask server
-if __name__ == '__main__':
-    app.run(debug=True)
+
+# show on the front end
+@problem_bp.route('/problem_page')
+def frontend():
+    return render_template('problem.html')
