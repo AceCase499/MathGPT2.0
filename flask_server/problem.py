@@ -1,232 +1,217 @@
 import os
-from dotenv import load_dotenv
-from flask import Flask, request, jsonify, render_template, Blueprint
-from openai import OpenAI
-from datetime import datetime
 import uuid
-from database import engine, Lectures, LectureChat
+from datetime import datetime
+from dotenv import load_dotenv
+from flask import Blueprint, request, jsonify, render_template
+from openai import OpenAI
 from sqlalchemy.orm import Session
+from database import engine, Problem_Sessions  # your SQLAlchemy model
 
-# Automatically read the .env file in the root directory.
 load_dotenv()
+client = OpenAI(api_key=os.environ["GPT_API"])
 
-client = OpenAI(api_key= os.environ.get("GPT_API"))
-
-# Create a Flask application object
 problem_bp = Blueprint('problem', __name__)
 
-# Stores for problems and lectures
-problem_sessions = {}
-
-
-# TC8.1 & TC8.2 - Generate problem from topic or lecture
+# TC8.1 & TC8.2 – start a problem session
 @problem_bp.route('/mathgpt/problem/start', methods=['POST'])
 def start_problem():
-    data = request.json
-    mode = data.get('mode', 'topic')  # "topic" or "lecture"
+    data = request.json or {}
+    # 1) REQUIRE student_id
+    student_id = data.get('student_id')
+    if not student_id:
+        return jsonify(error="Missing student_id"), 400
+
+    # 2) VALIDATE it’s an integer
+    try:
+        student_id = int(student_id)
+    except ValueError:
+        return jsonify(error="Invalid student_id"), 400
+
+    # (Optional) check it actually exists in DB
+    from database import Student
+    with Session(engine) as chk:
+        if not chk.get(Student, student_id):
+            return jsonify(error=f"Student {student_id} not found"), 404
+    
+    mode = data.get('mode', 'topic')
     topic = data.get('topic')
     lecture_id = data.get('lecture_session_id')
 
-    if mode == 'topic' and not topic:
-        return 'Missing topic', 400
-    if mode == 'lecture':
+    if mode == 'topic':
+        if not topic:
+            return jsonify(error="Missing topic"), 400
+        prompt = (
+            f"You are a math instructor. Create a challenging math problem on: {topic}.\n"
+            "### Problem\n\n### Solution\n\n### Hint\n"
+        )
+        source = 'topic'
+    else:
+        if not lecture_id:
+            return jsonify(error="Missing lecture_session_id"), 400
+        # load last lecture text from LectureChat...
+        from database import LectureChat, Lectures
         with Session(engine) as session:
-            
-            lecture = session.query(Lectures).filter_by(id=lecture_id).first()
-            if lecture is None:
-                return 'Lecture session not found', 404
-
-            last_msg = (
+            lecture = session.get(Lectures, lecture_id)
+            if not lecture:
+                return jsonify(error="Lecture not found"), 404
+            last = (
                 session.query(LectureChat)
                 .filter_by(lecture_id=lecture_id)
                 .order_by(LectureChat.timestamp.desc())
                 .first()
             )
-            
-            lecture_text = last_msg.message if last_msg else lecture.content
-            topic = lecture.topic
+            lecture_text = last.message if last else lecture.content
+            prompt = (
+                "You are a math instructor. Based on this lecture, generate one math problem.\n"
+                "### Problem\n\n### Solution\n\n### Hint\n\n"
+                "Don't regurgitate the lecture, only generate a problem based on it.\n"
+                f"[Lecture]\n{lecture_text}"
+            )
+        source = f"lecture:{lecture_id}"
+        topic = lecture.topic
 
-        prompt = (
-            "You are a math instructor. Based on the following lecture content, "
-            "generate one challenging math problem. Respond with:\n"
-            "### Problem\n### Solution\n### Hint\n\n"
-            f"[Lecture Content]\n{lecture_text}"
-        )
-    else:
-        prompt = (
-            f"You are a math instructor. Create a challenging math problem on: {topic}.\n"
-            "Return a clean, well-formatted markdown response without using bold labels like 'Problem Statement' or 'Step-by-step'.\n"
-            "Use the following format, and keep it readable:\n\n"
-            "### Problem\n"
-            "<problem content if needed>\n\n"
-            "### Solution\n"
-            "<solution steps, clearly explained>\n\n"
-            "### Hint\n"
-            "<a helpful hint>"
-        )
-
-    response = client.chat.completions.create(
+    # ask OpenAI
+    resp = client.chat.completions.create(
         model="gpt-4o",
-        messages=[{"role": "user", "content": prompt}]
+        messages=[{"role":"user","content":prompt}]
     )
-    content = response.choices[0].message.content
+    content = resp.choices[0].message.content
 
-    if "### Solution" not in content:
-        return f'Invalid format: missing solution section. Raw output:\n{content}', 500
+    # parse into question, solution, hint
+    if "### Solution" not in content or "### Hint" not in content:
+        return jsonify(error="Bad format from AI", raw=content), 500
+    q, rest = content.split("### Solution",1)
+    sol, hint = rest.split("### Hint",1)
+    question = q.strip().replace("### Problem","").strip()
+    solution = sol.strip()
+    hint = hint.strip()
 
-    parts = content.split("### Solution")
-    if len(parts) < 2:
-        return 'Invalid format: missing solution section', 500
-    question = parts[0].strip()
+    # persist
+    with Session(engine) as session:
+        ps = Problem_Sessions(
+            student_id=int(data.get('student_id',0)),
+            title=topic,
+            topic=topic,
+            source=source,
+            created_at=datetime.utcnow().isoformat(),
+            solution=solution,
+            hint=hint,
+            user_answer=None,
+            is_done=False
+        )
+        session.add(ps)
+        session.flush()           # assigns ps.id
+        session.commit()
+        session_id = ps.id
 
-    solution_and_hint = parts[1].split("### Hint")
-    solution = solution_and_hint[0].strip()
-    hint = solution_and_hint[1].strip() if len(solution_and_hint) > 1 else "No hint provided"
-
-    session_id = str(uuid.uuid4())
-    problem_sessions[session_id] = {
-        "title": topic,
-        "topic": topic,
-        "question": question,
-        "solution": solution,
-        "hint": hint,
-        "user_answer": None,
-        "followups": [],
-        "is_done": False,
-        "created_at": datetime.utcnow(),
-        "source_type": mode,
-        "source_ref": lecture_id if mode == "lecture" else None
-    }
-
-    return jsonify({"session_id": session_id, "question": question})
+    return jsonify(session_id=session_id, question=question)
 
 
-# TC8.3 - Return hint
+# TC8.3 – get hint
 @problem_bp.route('/mathgpt/problem/hint', methods=['POST'])
 def get_hint():
-    data = request.json
-    session_id = data.get('session_id')
-    session = problem_sessions.get(session_id)
-    if not session:
-        return 'Session not found', 404
-    return jsonify({"hint": session["hint"]})
+    sid = request.json.get('session_id')
+    with Session(engine) as session:
+        ps = session.get(Problem_Sessions, sid)
+        if not ps: return jsonify(error="Not found"),404
+        return jsonify(hint=ps.hint)
 
 
-# TC8.4 - Return step-by-step solution
+# TC8.4 – get solution
 @problem_bp.route('/mathgpt/problem/solution', methods=['POST'])
 def get_solution():
-    data = request.json
-    session_id = data.get('session_id')
-    session = problem_sessions.get(session_id)
-    if not session:
-        return 'Session not found', 404
-    return jsonify({"solution": session["solution"]})
+    sid = request.json.get('session_id')
+    with Session(engine) as session:
+        ps = session.get(Problem_Sessions, sid)
+        if not ps: return jsonify(error="Not found"),404
+        return jsonify(solution=ps.solution)
 
 
-# TC8.5 - Submit answer and get feedback
+# TC8.5 – submit answer
 @problem_bp.route('/mathgpt/problem/answer', methods=['POST'])
 def submit_answer():
     data = request.json
-    session_id = data.get('session_id')
-    user_answer = data.get('answer')
-    session = problem_sessions.get(session_id)
-    if not session:
-        return 'Session not found', 404
+    sid, ans = data.get('session_id'), data.get('answer')
+    with Session(engine) as session:
+        ps = session.get(Problem_Sessions, sid)
+        if not ps: return jsonify(error="Not found"),404
 
-    session["user_answer"] = user_answer
+        # ask OpenAI to judge
+        judge = (
+            "You will now judge whether the answer is correct or incorrect and give personalized feedback. Also you are replying to the student so address them as you or something.\n"
+            f"Problem: {ps.solution}\n"
+            "This was the original problem statement\n"
+            f"User Answer: {ans}\n"
+            "The above line is the answer the student gives\n"
+            "Please compliment the student if they are correct\n"
+            "Also don't assume they gave any solution if they didn't mention it\n"
+            "Evaluate correctness and give brief feedback. Complement their methods or ask for their work if they gave none. Also try to suggest hints if they get wrong and not directly tell them."
+        )
+        resp = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role":"user","content":judge}]
+        )
+        feedback = resp.choices[0].message.content
 
-    judge_prompt = (
-        f"Problem: {session['question']}\n"
-        f"User Answer: {user_answer}\n"
-        f"Correct Solution: {session['solution']}\n"
-        "Evaluate the user answer. Is it correct or incorrect? Provide a short explanation."
-    )
+        # persist user answer
+        ps.user_answer = ans
+        session.commit()
 
-    response = client.chat.completions.create(
-        model="gpt-4o",
-        messages=[{"role": "user", "content": judge_prompt}]
-    )
-    feedback = response.choices[0].message.content
-    return jsonify({"feedback": feedback})
-
-
-# TC8.6 - Follow-up questions
-@problem_bp.route('/mathgpt/problem/followup', methods=['POST'])
-def followup():
-    data = request.json
-    session_id = data.get('session_id')
-    question = data.get('question')
-    session = problem_sessions.get(session_id)
-    if not session:
-        return 'Session not found', 404
-
-    chat = [
-        {"role": "user", "content": f"The problem was: {session['question']}"},
-        {"role": "assistant", "content": session["solution"]},
-        {"role": "user", "content": question}
-    ]
-
-    response = client.chat.completions.create(
-        model="gpt-4o",
-        messages=chat
-    )
-    answer = response.choices[0].message.content
-    session["followups"].append({"q": question, "a": answer})
-    return jsonify({"answer": answer})
+    return jsonify(feedback=feedback)
 
 
-# TC8.7 - End session
+# TC8.7 – complete session
 @problem_bp.route('/mathgpt/problem/complete', methods=['POST'])
 def complete():
-    data = request.json
-    session_id = data.get('session_id')
-    session = problem_sessions.get(session_id)
-    if not session:
-        return 'Session not found', 404
-    session["is_done"] = True
-    return jsonify({"message": "Session marked complete"})
+    sid = request.json.get('session_id')
+    with Session(engine) as session:
+        ps = session.get(Problem_Sessions, sid)
+        if not ps: return jsonify(error="Not found"),404
+        ps.is_done = True
+        session.commit()
+    return jsonify(message="Session marked complete")
 
 
-# TC8.8 - Rename session
+# TC8.8 – rename session
 @problem_bp.route('/mathgpt/problem/rename', methods=['POST'])
 def rename():
-    data = request.json
-    session_id = data.get('session_id')
-    new_title = data.get('new_title')
-    session = problem_sessions.get(session_id)
-    if not session:
-        return 'Session not found', 404
-    session['title'] = new_title
-    return jsonify({"message": "Session title updated"})
+    sid, new = request.json.get('session_id'), request.json.get('new_title')
+    with Session(engine) as session:
+        ps = session.get(Problem_Sessions, sid)
+        if not ps: return jsonify(error="Not found"),404
+        ps.title = new
+        session.commit()
+    return jsonify(message="Title updated")
 
 
-# TC8.9 - Delete session
+# TC8.9 – delete session
 @problem_bp.route('/mathgpt/problem/delete', methods=['POST'])
 def delete():
-    data = request.json
-    session_id = data.get('session_id')
-    if session_id in problem_sessions:
-        del problem_sessions[session_id]
-        return jsonify({"message": "Session deleted"})
-    return 'Session not found', 404
+    sid = request.json.get('session_id')
+    with Session(engine) as session:
+        ps = session.get(Problem_Sessions, sid)
+        if not ps: return jsonify(error="Not found"),404
+        session.delete(ps)
+        session.commit()
+    return jsonify(message="Session deleted")
 
 
-# List all sessions
+# list all problem sessions
 @problem_bp.route('/mathgpt/problem/list', methods=['GET'])
 def list_problems():
-    result = []
-    for sid, s in problem_sessions.items():
-        result.append({
-            "session_id": sid,
-            "title": s.get("title", s["topic"]),
-            "topic": s["topic"],
-            "source_type": s.get("source_type"),
-            "created_at": s["created_at"].isoformat()
-        })
+    with Session(engine) as session:
+        all_ps = session.query(Problem_Sessions).all()
+        result = [{
+            "session_id": ps.id,
+            "title": ps.title,
+            "topic": ps.topic,
+            "source": ps.source,
+            "created_at": ps.created_at,
+            "is_done": ps.is_done
+        } for ps in all_ps]
     return jsonify(result)
 
 
-# show on the front end
 @problem_bp.route('/problem_page')
 def frontend():
     return render_template('problem.html')

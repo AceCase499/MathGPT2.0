@@ -5,59 +5,19 @@
     <meta charset="UTF-8" />
     <title>MathGPT Problem Solver</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-        }
-
-        section {
-            margin-bottom: 24px;
-        }
-
-        h2 {
-            margin-top: 0;
-        }
-
-        label {
-            display: inline-block;
-            width: 140px;
-        }
-
-        input[type=text],
-        textarea {
-            width: 320px;
-            padding: 6px;
-        }
-
-        button {
-            margin: 6px 0;
-        }
-
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        section { margin-bottom: 24px; }
+        h2 { margin-top: 0; }
+        label { display: inline-block; width: 140px; }
+        input[type=text], textarea { width: 320px; padding: 6px; }
+        button { margin: 6px 0; }
         .output {
-            background: #f0f0f0;
-            padding: 10px;
-            margin-top: 10px;
-            border-radius: 5px;
-            white-space: pre-wrap;
+            background: #f0f0f0; padding: 10px; margin-top: 10px;
+            border-radius: 5px; white-space: pre-wrap;
         }
-
-        table {
-            border-collapse: collapse;
-            margin-top: 10px;
-            width: 100%;
-        }
-
-        th,
-        td {
-            border: 1px solid #ccc;
-            padding: 6px;
-            text-align: left;
-        }
-
-        tr:hover {
-            background-color: #f9f9f9;
-            cursor: pointer;
-        }
+        table { border-collapse: collapse; margin-top: 10px; width: 100%; }
+        th, td { border: 1px solid #ccc; padding: 6px; text-align: left; }
+        tr:hover { background-color: #f9f9f9; cursor: pointer; }
     </style>
 </head>
 
@@ -66,10 +26,14 @@
 
     <section>
         <h2>Start New Problem</h2>
+        <label>Student ID:</label>
+        <input type="text" id="studentId" placeholder="e.g. 42"><br><br>
+
         <label><input type="radio" name="mode" value="topic" checked> From Topic</label>
         <label><input type="radio" name="mode" value="lecture"> From Lecture</label><br>
+
         <label>Topic or Lecture ID:</label>
-        <input type="text" id="inputField" placeholder="e.g. Calculus or lec-001"><br>
+        <input type="text" id="inputField" placeholder="e.g. Calculus or 7"><br>
         <button onclick="startProblem()">Generate Problem</button>
     </section>
 
@@ -131,26 +95,34 @@
         }
 
         async function startProblem() {
+            const studentId = document.getElementById('studentId').value.trim();
+            if (!studentId) return alert('Please enter a Student ID');
+
             const mode = document.querySelector('input[name="mode"]:checked').value;
             const value = document.getElementById('inputField').value.trim();
-            const payload = { mode };
-            if (mode === 'topic') payload.topic = value;
-            else payload.lecture_session_id = value;
+            if (!value) return alert('Please enter a Topic or Lecture ID');
+
+            const payload = { student_id: studentId, mode };
+            if (mode === 'topic') {
+                payload.topic = value;
+            } else {
+                payload.lecture_session_id = value;
+            }
 
             const res = await fetch(api('/problem/start'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
-            if (!res.ok) return alert(await res.text());
+            if (!res.ok) return alert((await res.json()).error || await res.text());
 
             const { session_id, question } = await res.json();
             currentSessionId = session_id;
 
-            document.getElementById('hint').textContent = '';
-            document.getElementById('solution').textContent = '';
-            document.getElementById('feedback').textContent = '';
-            document.getElementById('followupResponse').textContent = '';
+            // clear old outputs
+            ['hint','solution','feedback','followupResponse'].forEach(id => 
+                document.getElementById(id).textContent = ''
+            );
             document.getElementById('userAnswer').value = '';
             document.getElementById('renameInput').value = '';
             document.getElementById('followupInput').value = '';
@@ -160,7 +132,6 @@
             showSection('actionsSection');
             loadSessions();
         }
-
 
         async function getHint() {
             const res = await fetch(api('/problem/hint'), {
@@ -232,7 +203,7 @@
             });
             alert('Deleted');
             currentSessionId = null;
-            location.reload();
+            loadSessions();
         }
 
         async function loadSessions() {
@@ -243,41 +214,35 @@
             list.forEach(row => {
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
-      <td>${row.session_id}</td>
-      <td>${row.title}</td>
-      <td>${row.topic}</td>
-      <td>${row.source_type}</td>
-      <td>${new Date(row.created_at).toLocaleString()}</td>
-    `;
+                    <td>${row.session_id}</td>
+                    <td>${row.title}</td>
+                    <td>${row.topic}</td>
+                    <td>${row.source}</td>
+                    <td>${new Date(row.created_at).toLocaleString()}</td>
+                `;
                 tr.onclick = async () => {
                     currentSessionId = row.session_id;
-                    const res = await fetch(api('/problem/solution'), {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ session_id: currentSessionId })
-                    });
-                    const solutionData = await res.json();
-
-                    const res2 = await fetch(api('/problem/hint'), {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ session_id: currentSessionId })
-                    });
-                    const hintData = await res2.json();
-
-                    const questionText = row.title; // just a fallback
-                    const sessionRes = await fetch(api('/problem/list'));
-                    const sessions = await sessionRes.json();
-                    const selected = sessions.find(s => s.session_id === currentSessionId);
-
-                    document.getElementById('question').textContent = selected?.title || 'Problem loaded';
-                    document.getElementById('solution').textContent = "Solution:\n" + solutionData.solution;
-                    document.getElementById('hint').textContent = "Hint: " + hintData.hint;
-
+                    // load solution & hint
+                    const [sRes, hRes] = await Promise.all([
+                        fetch(api('/problem/solution'), {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ session_id: currentSessionId })
+                        }),
+                        fetch(api('/problem/hint'), {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ session_id: currentSessionId })
+                        })
+                    ]);
+                    const { solution } = await sRes.json();
+                    const { hint } = await hRes.json();
+                    document.getElementById('question').textContent = row.title;
+                    document.getElementById('solution').textContent = "Solution:\n" + solution;
+                    document.getElementById('hint').textContent = "Hint: " + hint;
                     showSection('problemSection');
                     showSection('actionsSection');
                 };
-
                 tbody.appendChild(tr);
             });
         }

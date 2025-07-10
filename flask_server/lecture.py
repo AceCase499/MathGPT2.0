@@ -27,7 +27,7 @@ def start_lecture():
     if not topic or not student_id:
         return jsonify({'error': 'Missing topic or student_id'}), 400
 
-    prompt = f"Give a multi-paragraph lecture on: {topic}"
+    prompt = f"Give a multi-paragraph lecture on: {topic}. Please make sure this is math related or respond with a short message encouraging the user to stay focused on math. Use real world examples, and provide a fun fact related to the topic. If you cannot provide a lecture on the topic, respond with a short message encouraging the user to stay focused on math."
     messages = [{"role": "user", "content": prompt}]
 
     response = client.chat.completions.create(
