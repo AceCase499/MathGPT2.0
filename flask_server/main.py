@@ -26,7 +26,7 @@ from database import User, Student, Tutor, User_Login, Lectures, LectureChat
 
 load_dotenv()
 
-database_url = "postgresql://postgres:J5FjyNbzKHuPK6mK@db.mpgvjrzxvizjnyxdyntp.supabase.co:5432/postgres"
+database_url = os.environ.get("DATABASE_URL")
 engine = create_engine(database_url)
 app = Flask(__name__)
 app.register_blueprint(lecture_bp)
