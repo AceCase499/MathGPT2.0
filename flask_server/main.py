@@ -15,10 +15,10 @@
 from typing import Optional, List
 from sqlalchemy import create_engine, String, Text, select, ForeignKey, Integer
 from sqlalchemy.orm import DeclarativeBase, Session, mapped_column, Mapped, relationship
-from flask import Flask, render_template, request, redirect
+from flask import Flask, render_template, request, redirect, jsonify
 from flask_cors import CORS
 from datetime import datetime
-from dotenv import load_dotenv  
+from dotenv import load_dotenv
 from lecture import lecture_bp
 from problem import problem_bp
 import os
@@ -26,7 +26,7 @@ from database import User, Student, Tutor, User_Login, Lectures, LectureChat
 
 load_dotenv()
 
-database_url = os.environ.get("DATABASE_URL")
+database_url = "postgresql://postgres:J5FjyNbzKHuPK6mK@db.mpgvjrzxvizjnyxdyntp.supabase.co:5432/postgres"
 engine = create_engine(database_url)
 app = Flask(__name__)
 app.register_blueprint(lecture_bp)
@@ -112,10 +112,10 @@ def login():
             user_login = session.query(User_Login).filter_by(username=username, password=password).first()
             if user_login:
                 # If the user exists, return a message (this will be changed to actually logging the user in)
-                return f"Login successful for user: {user_login.username} with ID: {user_login.id}"
+                return jsonify(status = True, user_id = user_login.id)
             else:
                 # If the user does not exist, return an error message
-                return "Invalid username or password"
+                return jsonify(status = False)
     # Sends user to login.html page
     return render_template('login.html')
 
