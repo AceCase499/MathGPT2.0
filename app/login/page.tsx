@@ -1,13 +1,11 @@
 'use client';
 
-import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { useRouter } from 'next/navigation';
-import { emit } from 'process';
-import { useState } from 'react';
-
+import { useState, useContext } from 'react';
+import { AuthContext } from "../context/AuthContext.js";
 
 export default function LoginPage() {
-  const supabase = useSupabaseClient();
+  const { login } = useContext(AuthContext);
   const router = useRouter();
 
   const [username, setUsername] = useState('');
@@ -25,8 +23,8 @@ export default function LoginPage() {
       return
     }
     
-    // Basic input validation
-    /* if (!email || !email.includes('@')) {
+    // Basic email input validation
+    /* if (!email.trim() || !email.includes('@')) {
       alert('Please enter a valid email address.');
       return;
     } */
@@ -46,14 +44,15 @@ export default function LoginPage() {
       method: 'POST',
       body: form, // no need for headers; browser sets correct Content-Type
     });
+    const result = await response.json()
 
-    const result = await response.text(); // Read plain text response
-    alert(result)
-
-    if (result.includes("Invalid username or password")){
+    if (result.status == false){
       setLoading(false)
     }
-    if (result.includes("Login successful")){
+    if (result.status == true){
+      await login({
+        id: result.user_id
+      });
       alert("Welcome back to MathGPT!")
       router.push('/welcome');
     }
@@ -69,6 +68,16 @@ export default function LoginPage() {
       router.push('/dashboard');
     } */
   };
+
+  async function tryme(){
+    await login({
+        id: 1,//result.id,
+        name: "Jerrod",//result.name,
+        bio: "I like robots",//result.bio
+      });
+      alert("Welcome back to MathGPT!")
+      router.push('/welcome');
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-100">
@@ -112,6 +121,9 @@ export default function LoginPage() {
 </p>
 
       </form>
+      <button onClick={tryme} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md">
+        Try Me
+      </button>
     </div>
   );
 }

@@ -1,9 +1,12 @@
 "use client"
-import React from 'react';
+import { useContext} from 'react';
 import Image from 'next/image'
 import logo from '../../assets/images/logofull.png';
+import { AuthContext } from "../context/AuthContext.js";
 
 const HomePage = () => {
+  const { user, logout } = useContext(AuthContext);
+
   const navigate = (path) => {
     window.location.href = path;
   };
@@ -30,8 +33,9 @@ const HomePage = () => {
       <nav style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem', borderBottom: '1px solid black' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <img src={logo} alt="MathGPT Logo" style={{ height: '30px' }} />
-          <button style={buttonStyle} onClick={() => navigate('/lectures')}>Lectures</button>
+          <button style={buttonStyle} onClick={() => navigate('/lecture2')}>Lectures</button>
           <button style={buttonStyle} onClick={() => navigate('/problems')}>Problems</button>
+          <button style={buttonStyle} onClick={() => navigate('/assessment')}>Assessments</button>
         </div>
         <button
           onClick={()=>handleLogout}
@@ -67,8 +71,11 @@ const HomePage = () => {
           </div>
 
           <div style={{ display: 'flex', gap: '2rem' }}>
-            <button onClick={() => navigate('/lectures')} style={buttonStyle}>New Lecture</button>
+            <button onClick={() => navigate('/lecture2')} style={buttonStyle}>New Lecture</button>
             <button onClick={() => navigate('/newproblem')} style={buttonStyle}>New Problem</button>
+            <button onClick={() => navigate('/assessment')} style={buttonStyle}>Take an Assessment Quiz</button>
+            {/* <button onClick={()=> alert(user.id)} style={buttonStyle}>Try Me</button> */}
+            <button onClick={logout} style={buttonStyle}>Logout</button>
           </div>
         </div>
       </main>

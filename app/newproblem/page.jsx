@@ -1,51 +1,20 @@
-"use client"
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+"use client";
+import React, { useState } from 'react';
 import logo from '../../assets/images/logofull.png';
 
 export default function NewProblemPage() {
-  //const navigate = useNavigate();
-
-  const [mode, setMode] = useState('manual'); // manual | topic | lecture
+  const [quizType, setQuizType] = useState('');
   const [topic, setTopic] = useState('');
   const [lecture, setLecture] = useState('');
-  const [question, setQuestion] = useState('');
+  const [problemType, setProblemType] = useState('');
+  const [generatedQuestion, setGeneratedQuestion] = useState('');
+  const [correctAnswer, setCorrectAnswer] = useState('42'); // Placeholder
   const [answer, setAnswer] = useState('');
   const [clarification, setClarification] = useState('');
-  const [problemType, setProblemType] = useState('Algebra');
-  const [autoTitle, setAutoTitle] = useState('');
-  const [showModal, setShowModal] = useState(false);
-
-  useEffect(() => {
-    const lower = question.toLowerCase();
-    if (lower.includes('derivative') || lower.includes('integral') || lower.includes('limit')) {
-      setProblemType('Calculus');
-      setAutoTitle('Calculus Problem');
-    } else if (lower.includes('triangle') || lower.includes('angle') || lower.includes('circle')) {
-      setProblemType('Geometry');
-      setAutoTitle('Geometry Problem');
-    } else if (lower.includes('mean') || lower.includes('median') || lower.includes('probability')) {
-      setProblemType('Statistics');
-      setAutoTitle('Statistics Problem');
-    } else if (lower.match(/[a-z]/i) && lower.match(/=|x|y|\d/)) {
-      setProblemType('Algebra');
-      setAutoTitle('Algebra Problem');
-    } else {
-      setAutoTitle('');
-    }
-  }, [question]);
-
-  const handleSave = () => {
-    const newProblem = {
-      type: problemType,
-      question,
-      answer,
-      clarification,
-      createdAt: new Date().toISOString(),
-    };
-    console.log('Saved:', newProblem);
-    setShowModal(true);
-  };
+  const [explanation, setExplanation] = useState('');
+  const [submitted, setSubmitted] = useState(false);
+  const [showAnswerModal, setShowAnswerModal] = useState(false);
+  const [InpEnabled, ttginp] = useState(true);
 
   const navBtnStyle = {
     background: 'white',
@@ -54,6 +23,7 @@ export default function NewProblemPage() {
     fontWeight: 'bold',
     padding: '0.5rem 1rem',
     cursor: 'pointer',
+    transition: 'all 0.3s ease',
   };
 
   const inputStyle = {
@@ -66,10 +36,67 @@ export default function NewProblemPage() {
     resize: 'vertical',
     backgroundColor: 'white',
     color: 'black',
+    opacity: 1,
+    transition: 'opacity 0.5s ease',
+  };
+
+  const fadeInStyle = {
+    animation: 'fadeIn 0.5s ease',
+  };
+
+  const slideInStyle = {
+    animation: 'slideIn 0.5s ease',
+  };
+
+  const handleClick = (type) => {
+    setQuizType(type);
+    setSubmitted(false);
+    setGeneratedQuestion('');
+    setAnswer('');
+    setClarification('');
+    setExplanation('');
+    setShowAnswerModal(false);
+  };
+
+  const handleSubmit = () => {
+    const source = quizType === 'lecture' ? lecture : topic;
+    const type = problemType || 'General';
+    const fakeQuestion = `What is the answer to the ultimate question of life, the universe, and everything?`;
+    setGeneratedQuestion(fakeQuestion);
+    setCorrectAnswer('42');
+    setSubmitted(true);
+  };
+
+  const handleAnswerSubmit = () => {
+    if (answer.trim() === correctAnswer.trim()) {
+      setShowAnswerModal(true);
+    } else {
+      alert('Try again! That answer is not quite right.');
+    }
+  };
+
+  const handleClarifySubmit = () => {
+    setExplanation(`Sure! Here's a hint: the answer to everything is often jokingly referred to as "42".`);
   };
 
   return (
     <div style={{ height: '100vh', width: '100vw', backgroundColor: 'white', color: 'black', display: 'flex', flexDirection: 'column' }}>
+      <style>{`
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes slideIn {
+          from { opacity: 0; transform: translateX(-10px); }
+          to { opacity: 1; transform: translateX(0); }
+        }
+
+        button:hover {
+          background-color: #f0f0f0 !important;
+        }
+      `}</style>
+
       {/* Top Nav */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem', borderBottom: '1px solid black' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -80,106 +107,156 @@ export default function NewProblemPage() {
         <button style={navBtnStyle} onClick={() => window.location.href = '/login'}>Login</button>
       </div>
 
-      {/* Main */}
-      <div style={{ flex: 1, padding: '2rem', display: 'flex', overflowY: 'auto', justifyContent: 'flex-start' }}>
-        <div style={{ width: '100%', maxWidth: '1500px' }}>
-          <h2 style={{ marginBottom: '1rem' }}>{autoTitle || 'New Problem'}</h2>
+      {/* Main Content */}
+      <div style={{ flex: 1, padding: '2rem', overflowY: 'auto', maxWidth: '900px', margin: '0 auto' }}>
+        <h2>Start a New Problem</h2>
 
-          <label><strong>Select input mode:</strong></label>
-          <select value={mode} onChange={(e) => setMode(e.target.value)} style={{ ...inputStyle }}>
-            <option value="manual">Manual</option>
-            <option value="topic">Quiz on Topic</option>
-            <option value="lecture">Quiz from Lecture</option>
-          </select>
+        {/* Quiz Type Buttons */}
+        <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
+          <button style={navBtnStyle} onClick={() => handleClick('topic')}>Quiz on Topic</button>
+          <button style={navBtnStyle} onClick={() => handleClick('lecture')}>Quiz on Lecture</button>
+        </div>
 
-          {mode === 'topic' && (
-            <>
-              <label><strong>Enter topic:</strong></label>
-              <input value={topic} onChange={(e) => setTopic(e.target.value)} style={inputStyle} placeholder="e.g. Derivatives" />
-            </>
-          )}
+        {/* Topic Input */}
+        {quizType === 'topic' && (
+          <div style={fadeInStyle}>
+            <label><strong>Enter Topic:</strong></label>
+            <input
+              type="text"
+              placeholder="e.g. Derivatives"
+              value={topic}
+              onChange={(e) => setTopic(e.target.value)}
+              style={inputStyle}
+            />
+            <label><strong>Select Problem Type:</strong></label>
+            <select value={problemType} onChange={(e) => setProblemType(e.target.value)} style={inputStyle}>
+              <option value="">Select one</option>
+              <option value="Algebra">Algebra</option>
+              <option value="Geometry">Geometry</option>
+              <option value="Calculus">Calculus</option>
+              <option value="Statistics">Statistics</option>
+            </select>
+          </div>
+        )}
 
-          {mode === 'lecture' && (
-            <>
-              <label><strong>Paste lecture content:</strong></label>
-              <textarea value={lecture} onChange={(e) => setLecture(e.target.value)} rows={3} style={inputStyle} />
-            </>
-          )}
+        {/* Lecture Input */}
+        {quizType === 'lecture' && (
+          <div style={fadeInStyle}>
+            <label><strong>Paste Lecture Content:</strong></label>
+            <textarea
+              value={lecture}
+              onChange={(e) => setLecture(e.target.value)}
+              placeholder="Paste lecture notes here..."
+              rows={4}
+              style={inputStyle}
+            />
+          </div>
+        )}
 
-          <label><strong>Choose problem type:</strong></label>
-          <select value={problemType} onChange={(e) => setProblemType(e.target.value)} style={inputStyle}>
-            <option>Algebra</option>
-            <option>Geometry</option>
-            <option>Calculus</option>
-            <option>Statistics</option>
-          </select>
+        {/* Submit Button */}
+        {quizType && (
+          <button
+            style={{ ...navBtnStyle, backgroundColor: 'blue', color: 'white', marginBottom: '2rem' }}
+            onClick={handleSubmit}
+            disabled={
+              (quizType === 'topic' && (!topic.trim() || !problemType)) ||
+              (quizType === 'lecture' && !lecture.trim())
+            }
+          >
+            Submit
+          </button>
+        )}
 
-          <label><strong>Enter your question:</strong></label>
-          <textarea
-            value={question}
-            onChange={(e) => setQuestion(e.target.value)}
-            placeholder="e.g. What is 2x + 3 = 7?"
-            rows={4}
-            style={inputStyle}
-          />
+        {/* Question Interaction Section */}
+        {submitted && (
+          <div style={slideInStyle}>
+            <h3>Generated Question:</h3>
+            <p style={{ padding: '1rem', backgroundColor: '#f5f5f5', border: '1px solid #ddd', borderRadius: '4px' }}>
+              {generatedQuestion}
+            </p>
 
-          <label><strong>Your Answer:</strong></label>
-          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
+              <button style={navBtnStyle}>Hint</button>
+              <button style={navBtnStyle}>Step-by-step</button>
+            </div>
+
+            {/* Answer */}
+            <label><strong>Your Answer:</strong></label>
             <textarea
               value={answer}
               onChange={(e) => setAnswer(e.target.value)}
-              placeholder="Type your answer..."
+              style={inputStyle}
+              placeholder="Type your answer here..."
               rows={3}
-              style={{ ...inputStyle, flex: 1 }}
             />
-            <button style={navBtnStyle}>Hint</button>
-            <button style={navBtnStyle}>Step-by-step</button>
-          </div>
-
-          <label><strong>Clarifying Questions:</strong></label>
-          <textarea
-            value={clarification}
-            onChange={(e) => setClarification(e.target.value)}
-            rows={2}
-            style={inputStyle}
-          />
-
-          <div style={{ display: 'flex', gap: '1rem' }}>
-            <button onClick={handleSave} style={{ ...navBtnStyle, backgroundColor: 'blue', color: 'white' }}>Save</button>
-            <button onClick={() => window.location.href = '/problems'} style={navBtnStyle}>Cancel</button>
-          </div>
-
-          {showModal && (
-            <div style={{
-              marginTop: '2rem',
-              padding: '1.5rem',
-              border: '2px solid #ccc',
-              borderRadius: '8px',
-              backgroundColor: 'white',
-              boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
-            }}>
-              <p>Would you like to:</p>
+            <div style={{ marginBottom: '1.5rem' }}>
               <button
-                style={{ ...navBtnStyle, marginTop: '0.5rem' }}
-                onClick={() => { setShowModal(false); alert('Generating similar problem...') }}
+                onClick={handleAnswerSubmit}
+                style={{ ...navBtnStyle, backgroundColor: '#4CAF50', color: 'white' }}
               >
-                Generate Similar Problem
-              </button>
-              <button
-                style={{ ...navBtnStyle, marginTop: '0.5rem' }}
-                onClick={() => { setShowModal(false); window.location.href = '/newproblem'; }}
-              >
-                Create New Problem
-              </button>
-              <button
-                style={{ ...navBtnStyle, marginTop: '0.5rem' }}
-                onClick={() => setShowModal(false)}
-              >
-                Cancel
+                Submit Answer
               </button>
             </div>
-          )}
-        </div>
+
+            {/* Clarification */}
+            <label><strong>Clarifying Questions:</strong></label>
+            <textarea
+              value={clarification}
+              onChange={(e) => setClarification(e.target.value)}
+              style={inputStyle}
+              placeholder="Ask a clarifying question..."
+              rows={2}
+            />
+            <div style={{ marginBottom: '1rem' }}>
+              <button
+                onClick={handleClarifySubmit}
+                style={{ ...navBtnStyle, backgroundColor: '#777', color: 'white' }}
+              >
+                Submit Clarification
+              </button>
+            </div>
+
+            {/* Explanation Result */}
+            {explanation && (
+              <div style={{ marginTop: '1rem', backgroundColor: '#eef', padding: '1rem', borderRadius: '4px' }}>
+                <strong>Explanation:</strong> {explanation}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Correct Modal */}
+        {showAnswerModal && (
+          <div style={{
+            marginTop: '2rem',
+            padding: '1.5rem',
+            border: '2px solid #ccc',
+            borderRadius: '8px',
+            backgroundColor: 'white',
+            boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+          }}>
+            <h3 style={{ color: 'green' }}>✅ Correct!</h3>
+            <p>Would you like to:</p>
+            <button
+              style={{ ...navBtnStyle, marginTop: '0.5rem' }}
+              onClick={() => {
+                setShowAnswerModal(false);
+                alert('Generating similar problem...');
+              }}
+            >
+              Generate Similar Question
+            </button>
+            <button
+              style={{ ...navBtnStyle, marginTop: '0.5rem' }}
+              onClick={() => {
+                setShowAnswerModal(false);
+                alert('Saved successfully!');
+              }}
+            >
+              Save
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
