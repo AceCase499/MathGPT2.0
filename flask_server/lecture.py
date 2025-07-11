@@ -19,7 +19,7 @@ engine = create_engine(database_url)
 lecture_bp = Blueprint('lecture', __name__)
 
 # Create a endpoint
-@lecture_bp.route('/mathgpt', methods=['GET'])
+@lecture_bp.route('/mathgpt', methods=['GET', 'POST'])
 def start_lecture():
     topic = request.args.get('topic')
     student_id = request.args.get('student_id')
