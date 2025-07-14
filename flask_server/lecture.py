@@ -67,7 +67,7 @@ def start_lecture():
     return jsonify({"lecture_id": lecture_id, "lecture": content})
 
 
-@lecture_bp.route('/mathgpt/followup', methods=['POST'])
+@lecture_bp.route('/mathgpt/followup', methods=['POST', 'GET'])
 def followup():
     data = request.json
     lecture_id = data.get('lecture_id')
@@ -110,7 +110,7 @@ def followup():
 
 
 # TC7.3: mark lecture as done
-@lecture_bp.route('/mathgpt/complete', methods=['POST'])
+@lecture_bp.route('/mathgpt/complete', methods=['POST', 'GET'])
 def complete():
     data = request.json
     session_id = data.get('session_id')
@@ -121,7 +121,7 @@ def complete():
     return jsonify({"message": "Lecture marked as complete"})
 
 
-@lecture_bp.route('/mathgpt/session', methods=['GET'])
+@lecture_bp.route('/mathgpt/session', methods=['GET', 'POST'])
 def get_session():
     lecture_id = request.args.get('lecture_id')
     with Session(engine) as session:
@@ -130,7 +130,7 @@ def get_session():
         return jsonify(messages)
 
 
-@lecture_bp.route('/mathgpt/lectures', methods=['GET'])
+@lecture_bp.route('/mathgpt/lectures', methods=['GET', 'POST'])
 def list_lectures():
     student_id = request.args.get('student_id')
     with Session(engine) as session:
@@ -144,7 +144,7 @@ def list_lectures():
         return jsonify(result)
 
 
-@lecture_bp.route('/mathgpt/rename', methods=['POST'])
+@lecture_bp.route('/mathgpt/rename', methods=['POST', 'GET'])
 def rename():
     data = request.json
     lecture_id = data.get('lecture_id')
@@ -159,7 +159,7 @@ def rename():
         return jsonify({'message': 'Lecture renamed'})
 
 
-@lecture_bp.route('/mathgpt/delete', methods=['POST'])
+@lecture_bp.route('/mathgpt/delete', methods=['POST', 'GET'])
 def delete():
     data = request.json
     lecture_id = data.get('lecture_id')
