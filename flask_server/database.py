@@ -13,13 +13,14 @@
 # Flask is used to create a web application with routes for user creation and login
 
 from typing import Optional, List
-from sqlalchemy import create_engine, String, Text, select, ForeignKey, Integer
+from sqlalchemy import create_engine, String, Text, select, ForeignKey, Integer, DateTime
 from sqlalchemy.orm import DeclarativeBase, Session, mapped_column, Mapped, relationship
 from flask import Flask, render_template, request, redirect
 from flask_cors import CORS
 from datetime import datetime
-from dotenv import load_dotenv  
+from dotenv import load_dotenv
 import os
+import datetime
 
 load_dotenv()
 
@@ -137,7 +138,7 @@ class LectureChat(Base):
     lecture_id: Mapped[int] = mapped_column(ForeignKey("lectures.id"))
     sender: Mapped[str] = mapped_column(String)  # "student" or "ai"
     message: Mapped[str] = mapped_column(Text)
-    timestamp: Mapped[Optional[str]] = mapped_column(String)
+    timestamp: Mapped[Optional[datetime]] = mapped_column(DateTime)
 
     lecture: Mapped["Lectures"] = relationship(back_populates="chat_messages")
 

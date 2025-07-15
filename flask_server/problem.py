@@ -15,9 +15,8 @@ problem_bp = Blueprint('problem', __name__)
 # TC8.1 & TC8.2 – start a problem session
 @problem_bp.route('/mathgpt/problem/start', methods=['POST'])
 def start_problem():
-    data = request.json or {}
     # 1) REQUIRE student_id
-    student_id = data.get('student_id')
+    student_id = request.form.get('student_id')
     if not student_id:
         return jsonify(error="Missing student_id"), 400
 
@@ -32,10 +31,10 @@ def start_problem():
     with Session(engine) as chk:
         if not chk.get(Student, student_id):
             return jsonify(error=f"Student {student_id} not found"), 404
-    
-    mode = data.get('mode', 'topic')
-    topic = data.get('topic')
-    lecture_id = data.get('lecture_session_id')
+
+    mode = request.form.get('mode', 'topic')
+    topic = request.form.get('topic')
+    lecture_id = request.form.get('lecture_session_id')
 
     if mode == 'topic':
         if not topic:
@@ -110,7 +109,7 @@ def start_problem():
 # TC8.3 – get hint
 @problem_bp.route('/mathgpt/problem/hint', methods=['POST'])
 def get_hint():
-    sid = request.json.get('session_id')
+    sid = request.form.get('session_id')
     with Session(engine) as session:
         ps = session.get(Problem_Sessions, sid)
         if not ps: return jsonify(error="Not found"),404
@@ -120,7 +119,7 @@ def get_hint():
 # TC8.4 – get solution
 @problem_bp.route('/mathgpt/problem/solution', methods=['POST'])
 def get_solution():
-    sid = request.json.get('session_id')
+    sid = request.form.get('session_id')
     with Session(engine) as session:
         ps = session.get(Problem_Sessions, sid)
         if not ps: return jsonify(error="Not found"),404
@@ -130,7 +129,7 @@ def get_solution():
 # TC8.5 – submit answer
 @problem_bp.route('/mathgpt/problem/answer', methods=['POST'])
 def submit_answer():
-    data = request.json
+    data = request.form
     sid, ans = data.get('session_id'), data.get('answer')
     with Session(engine) as session:
         ps = session.get(Problem_Sessions, sid)
@@ -163,7 +162,7 @@ def submit_answer():
 # TC8.7 – complete session
 @problem_bp.route('/mathgpt/problem/complete', methods=['POST'])
 def complete():
-    sid = request.json.get('session_id')
+    sid = request.form.get('session_id')
     with Session(engine) as session:
         ps = session.get(Problem_Sessions, sid)
         if not ps: return jsonify(error="Not found"),404
@@ -175,7 +174,7 @@ def complete():
 # TC8.8 – rename session
 @problem_bp.route('/mathgpt/problem/rename', methods=['POST'])
 def rename():
-    sid, new = request.json.get('session_id'), request.json.get('new_title')
+    sid, new = request.form.get('session_id'), request.form.get('new_title')
     with Session(engine) as session:
         ps = session.get(Problem_Sessions, sid)
         if not ps: return jsonify(error="Not found"),404
@@ -187,7 +186,7 @@ def rename():
 # TC8.9 – delete session
 @problem_bp.route('/mathgpt/problem/delete', methods=['POST'])
 def delete():
-    sid = request.json.get('session_id')
+    sid = request.form.get('session_id')
     with Session(engine) as session:
         ps = session.get(Problem_Sessions, sid)
         if not ps: return jsonify(error="Not found"),404
