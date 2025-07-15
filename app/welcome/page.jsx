@@ -5,7 +5,7 @@ import logo from '../../assets/images/logofull.png';
 import { AuthContext } from "../context/AuthContext.js";
 
 const HomePage = () => {
-  const { user, logout } = useContext(AuthContext);
+  const { logout } = useContext(AuthContext);
 
   const navigate = (path) => {
     window.location.href = path;

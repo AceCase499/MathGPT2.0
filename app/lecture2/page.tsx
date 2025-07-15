@@ -8,13 +8,16 @@
 
 'use client'
 '--jsx'
-import React, { useRef, useEffect, useState } from 'react'
+import React, { useRef, useEffect, useState, useContext } from 'react'
 import ReactMarkdown from 'react-markdown';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
 import "../chatFormat.css"
 import NavigationBar from "../../assets/components/navbar/page"
+import { AuthContext } from "../context/AuthContext.js";
+import WaveLoader from "../components/loading"
+
 
 export default function jsChat(){
   const [InputText, setInputText] = useState('')
@@ -22,10 +25,11 @@ export default function jsChat(){
   const [LoadedSessionName, setLoadedSessionName] = useState('New Session')
   const [InpEnabled, ttginp] = useState(true) //true = enabled, false = disabled
   const [Topic, setTopic] = useState('')
+  const [Subtopic, setSubtopic] = useState('')
   const [Lecture, tggLecture] = useState(false)
   const [updating, tggUpdating] = useState(false)
-  const [ws, setWs] = useState(null);
-  const [currentSessionID, setCurrentSessionID] = useState(0)
+  //const [ws, setWs] = useState(null);
+  const [currentLectureID, setCurrentLectureID] = useState(0)
   const markdownTest = `
 The product of matrices is:
 $$
@@ -36,31 +40,16 @@ $$
   //give buttons and text input absolute position, and justify bottom middle CSS
   // an array to keep track of every step toward solving the current equation
   //resets when a new equation is entered
-
+  const { user } = useContext(AuthContext);
   const [ChatStream, setChatStream] = useState([{role: "assistant", content: "Let's begin a new math lecture!"}])
-  const [SessionArchive, setSessionArchive] = useState(//the user's previous sessions will be loaded here
+  const [LectureArchive, setLectureArchive] = useState(//the user's previous sessions will be loaded here
     [
-      {id: 1010, name: "First Lecture", chat: [
-          {role: "assistant", content: "What will you learn about?"}, 
-          {role: "user", content: "Derivatives"}, 
-          {role: "assistant", content: "I will now explain derivatives...."}
-                                  ]
-      }, 
-      {id: 2020, name: "Second Lecture", chat: [
-          {role: "assistant", content: "What will you learn about?"}, 
-          {role: "user", content: "Logorithms"}, 
-          {role: "assistant", content: "Let's begin!"}
-                                  ]
-      },
-      {id: 3030, name: "The Other Lecture", chat: [
-          {role: "assistant", content: "What will you learn about?"}, 
-          {role: "user", content: "Long Division"}, 
-          {role: "assistant", content: "This is what division is..."}
-                                  ]
-      }
+      {lecture_id: 1010, topic: "First Lecture"}, 
+      {lecture_id: 2020, topic: "Second Lecture"},
+      {lecture_id: 3030, topic: "The Other Lecture"}
     ])
 
-    useEffect(() => {
+/*     useEffect(() => { //WEBSOCKET STREAMING
       const socket = new WebSocket("ws://localhost:3001/"); // Change as needed
     //const socket = new WebSocket("http://localhost:3001/");
     setWs(socket);
@@ -97,10 +86,11 @@ $$
     return () => {
       socket.close();
     };
-  }, []);
+  }, []); */
 
     useEffect(() => {
       //The code will run as soon as the page loads
+      loadFromDB()
     }, []); // The empty array ensures this effect runs only once on mount
 
 
@@ -143,12 +133,11 @@ $$
   async function setNewTopic() {
     let newTopic = prompt(
       'Enter a math topic to learn about:', //prompt
-      'Nonlinear Functions' //placeholder
+      'Algebra' //placeholder
     )
     if (newTopic !== null && newTopic.trim()) {
       //only set a new topic if the user inputs a nonempty string
       setTopic(newTopic)
-      tggLecture(false)
 
       if (currentBotResponse.trim()) {
         setChatStream((prev) => [...prev, { role: "assistant", content: currentBotResponse }]);
@@ -162,58 +151,139 @@ $$
     }
   }
 
+  async function setNewSubtopic() {
+    let newTopic = prompt(
+      'Enter a subtopic to focus on:', //prompt
+      'Substitution Method' //placeholder
+    )
+    if (newTopic !== null && newTopic.trim()) {
+      //only set a new topic if the user inputs a nonempty string
+      setSubtopic(newTopic)
+
+      if (currentBotResponse.trim()) {
+        setChatStream((prev) => [...prev, { role: "assistant", content: currentBotResponse }]);
+        setCurrentBotResponse("");
+      }
+      setChatStream((prev) => [...prev, { role: "system", content: `System: The subtopic was changed to "${newTopic}."`, }]);
+      //save new chat to conversation
+      ttginp(true) //enable chat bar
+    } else{
+      alert("Please make sure the subtopic field is not empty before starting a lecture!")
+    }
+  }
+
    const startLecture = async (e: React.FormEvent) => {
-    e.preventDefault() // Prevent form default behavior
-    tggLecture(true) // Toggle lecture state
-    ttginp(false) // disable chat bar
+    e.preventDefault();
+    ttginp(false);
 
-    if (ws) {
-      if (currentBotResponse.trim()) {
-        setChatStream((prev) => [...prev, { role: "assistant", content: currentBotResponse }]);
-        setCurrentBotResponse("");
-      }
-      const objective = "lecture"
-      ws.send(JSON.stringify({ messages: ChatStream, objective, Topic }));
-      setInputText("");
-      ttginp(true) //enable chat bar
+    /* if (!Topic.trim() || !user?.id) {
+      alert("Please enter a topic and make sure you are logged in.");
+      ttginp(true);
+      return;
+    } */
+    const form = new FormData();
+    Object.entries({topic: Topic, student_id: "3"}).forEach(([key, value]) => {
+      form.append(key, value);
+    });
+
+    const response = await fetch('https://mathgptdevs25.pythonanywhere.com/mathgpt', {
+      method: 'POST',
+      body: form
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
-  }
+    const data = await response.json();
+    setCurrentLectureID(data.lecture_id)
+    setChatStream(prev => [...prev, { role: "assistant", content: data.lecture }]);
+    scroll()
+    tggLecture(true); // Enable "Continue Lecture" button
 
-  const lectureContinued = async (e: React.FormEvent) => {
-    e.preventDefault() // Prevent form default behavior
-    tggLecture(true) // Toggle lecture state
-    ttginp(false) // disable chat bar
+  /* try {
+  } catch (error) {
+    console.error('Error:', error);
+    alert("Failed to start lecture. Please try again.");
+  } finally {
+    ttginp(true);
+  } */
+};
 
-    if (ws) {
-      if (currentBotResponse.trim()) {
-        setChatStream((prev) => [...prev, { role: "assistant", content: currentBotResponse }]);
-        setCurrentBotResponse("");
-      }
-      const objective = "continueLecture"
-      ws.send(JSON.stringify({ messages: ChatStream, objective, Topic }));
-      setInputText("");
-      ttginp(true) //enable chat bar
-    }
-  }
+  async function continueLecture (e: React.FormEvent){
+    e.preventDefault();
+    ttginp(false);
 
-  function generalMessage (e: React.FormEvent){
-    e.preventDefault() // Prevent form default behavior
-    ttginp(false) // disable chat bar
-    if (ws && InputText.trim()) {
-      const updatedMessages = [...ChatStream, { role: "user", content: InputText }];
-      if (currentBotResponse) {
-        setChatStream((prev) => [...prev, { role: "assistant", content: currentBotResponse }]);
-        setCurrentBotResponse("");
-      }
-      const objective = "generalChat"
-      const topic = ""
-      setChatStream((prev) => [...prev, { role: "user", content: InputText }]);
-      console.log(ChatStream)
-      ws.send(JSON.stringify({ messages: updatedMessages, objective, topic }));
-      setInputText("");
-      ttginp(true) //enable chat bar
-    }
+    /* if (!Topic.trim() || !user?.id) {
+      alert("Please enter a topic and make sure you are logged in.");
+      ttginp(true);
+      return;
+    } */
+
+    const form = new FormData();
+    Object.entries({lecture_id: /* currentLectureID.toString() */"3", quesion: InputText}).forEach(([key, value]) => {
+      form.append(key, value);
+    });
+    
+    const response = await fetch('https://mathgptdevs25.pythonanywhere.com/mathgpt/followup', {
+      method: 'POST',
+      body: form
+    });
+
+    /* if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    } */
+    const data = await response.json();
+    console.log(data)
+    setChatStream(prev => [...prev, { role: "assistant", content: data.answer }]);
+    setInputText("")
+    ttginp(true) //enable chat bar
   };
+
+const testSolve = async (e: React.FormEvent) => {
+    e.preventDefault();
+    ttginp(false);
+
+    const form = new FormData();
+    Object.entries({session_id: "4"}).forEach(([key, value]) => {
+      form.append(key, value);
+    });
+
+    const response = await fetch('https://mathgptdevs25.pythonanywhere.com/mathgpt/problem/solution', {
+      method: 'POST',
+      body: JSON.stringify({session_id: 4}) /* form */
+    });
+    const data = await response.json();
+    console.log(data)
+    tggLecture(true);
+}
+
+/*   const lectureContinued = async (e: React.FormEvent) => {
+    e.preventDefault() // Prevent form default behavior
+    ttginp(false) //disable chat bar
+
+    const form = new FormData();
+    Object.entries({topic: Topic, student_id: user.id}).forEach(([key, value]) => {
+      form.append(key, value);
+    });
+
+    try {
+      const response = await fetch('https://mathgptdevs25.pythonanywhere.com/mathgpt', {
+      method: 'POST',
+      body: form, // no need for headers; browser sets correct Content-Type
+    });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      const data = await response.json()
+      let tempChat = ChatStream
+      tempChat.push({role: "assistant", content: data.lecture})
+      setChatStream(tempChat) // Update chat stream with bot's response
+      ttginp(true) //disable chat bar
+    } catch (error) {
+      console.error('Error:', error)
+    }
+  } */
 
   function getBubbleStyle(role, inout){ //if true, get inner CSS, if false, get outer CSS
     if (role == "system"){
@@ -238,28 +308,27 @@ $$
     }
   }
 
-  function loadLecture(indexx){
-    saveLecture()
-    setCurrentSessionID(SessionArchive[indexx].id)
-    let loadedChat = SessionArchive[indexx].chat
+  function loadLecture(lecID){
+    /* setCurrentLectureID(LectureArchive[lecID].lecture_id)
+    let loadedChat = LectureArchive[lecID].chat
     setChatStream(loadedChat)
-    setLoadedSessionName(SessionArchive[indexx].name)
-    setCurrentBotResponse("")
+    setLoadedSessionName(LectureArchive[lecID].name)
+    setCurrentBotResponse("") */
     //alert(currentSessionID)
   }
 
   function deleteConvo(indexx){
-    let tempArc = SessionArchive
+    let tempArc = LectureArchive
 
     let dialogue = "Delete this chat session?";
-    if(LoadedSessionName === tempArc[indexx].name){
+    if(LoadedSessionName === tempArc[indexx].topic){
       dialogue += "\n(This will end your current session.)"
     }
     if (confirm(dialogue) == true) {
       tggUpdating(true)
-      let newArchive = SessionArchive
+      let newArchive = LectureArchive
       newArchive.splice(indexx, 1)
-      setSessionArchive(newArchive)
+      setLectureArchive(newArchive)
 
       const timer = setTimeout(() => {
         tggUpdating(false);
@@ -270,17 +339,24 @@ $$
     }
   }
 
-  function renameConvo(indexx){
-    let newSessionName = prompt(
+  function renameConvo(lecID){
+    let newLectureName = prompt(
       'Rename this Session:', //prompt
-      `${LoadedSessionName} - ${new Date().toDateString()}` //placeholder
+      `New Lesson - ${new Date().toDateString()}` //placeholder
     )
+    let tempArchive = LectureArchive
 
-    if (newSessionName != null && newSessionName.trim()){
+    if (newLectureName != null && newLectureName.trim()){
       tggUpdating(true)
-      let tempConvo = SessionArchive
-      tempConvo[indexx].name = newSessionName
-      setSessionArchive(tempConvo)
+      const newArchive = tempArchive.map(obj => {
+      if (obj.lecture_id == lecID) {
+        return { ...obj, name: newLectureName };
+      }
+      return obj; // Return other objects as they are
+    });
+      let tempConvo = LectureArchive
+      tempConvo[lecID].topic = newLectureName
+      setLectureArchive(tempConvo)
 
       const timer = setTimeout(() => {
         tggUpdating(false);
@@ -293,48 +369,53 @@ $$
 
   function getLectureIDs(){
     let IDs = []
-      SessionArchive.forEach(convo => {
-        IDs.push(convo.id)
+      LectureArchive.forEach(convo => {
+        IDs.push(convo.lecture_id)
       });
       return(IDs)
   }
 
   function newLecture(){
-    saveLecture()
+/*   
     let newTopic = prompt(
-      'Name this Lecture. \nWhat do you want to study?', //prompt
-      `New Lecture - ${new Date().toDateString()}` //placeholder
+      'Which math topic do you want to study?', //prompt
+      `New Topic - ${new Date().toDateString()}` //placeholder
     )
     setTopic(newTopic)
+    let newSubtopic = prompt(
+      'Enter a subtopic to focus on.', //prompt
+      `Subtopic - ${new Date().toDateString()}` //placeholder
+    )
+    setSubtopic(newSubtopic)
 
-    setCurrentSessionID(0)
-    setChatStream([{role: "assistant", content: "Let's begin a new math lecture!"}])
+
+    setCurrentLectureID(response.lecture_id)
+    setChatStream([{role: "assistant", content: "Let's begin a new math lecture!"}]) */
   }
 
+  async function loadFromDB(){
+    ttginp(false);
+    tggUpdating(true);
 
-  function saveLecture(){
-    const IDs = getLectureIDs()
-    if (IDs.includes(currentSessionID)){//if this is true, do not create a new convo, overwrite the existing one
-      let tempArchive = SessionArchive;
-      let indexById = tempArchive.findIndex(obj => obj.id === currentSessionID);
-      if (indexById < 0){
-        indexById = 0
-      }
-      tempArchive[indexById].chat = ChatStream;
-      setSessionArchive(tempArchive);
-      return
-    }
-    //create a new convo and add it to the list of lectures
-    let newID;
-    do {
-      newID = crypto.randomUUID();
-    } while (IDs.includes(newID));
-    //now we can confirm this ID is unique
+    const form = new FormData();
+    Object.entries({ student_id: "3"}).forEach(([key, value]) => {
+      form.append(key, value);
+    });
 
-    let tempArchive = SessionArchive
-    tempArchive.push({id: parseInt(newID), name: `Untitled Lecture - ${new Date().toDateString()}`, chat: ChatStream})
-    setSessionArchive(tempArchive)
+    const response = await fetch('https://mathgptdevs25.pythonanywhere.com/mathgpt/lectures', {
+      method: 'POST',
+      body: form
+    });
 
+    /* if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    } */
+    const data = await response.json();
+    console.log(data)
+    setLectureArchive(data)
+    tggLecture(true); // Enable "Continue Lecture" button
+    ttginp(true);
+    tggUpdating(false)
   }
 
   return (
@@ -345,28 +426,43 @@ $$
         <button className='underline cursor-pointer underline-offset-8' onClick={()=>newLecture()}>Start a New Lecture</button>
         <h1 className="text-blue-600 px-3 pt-3 font-extrabold">Previous Sessions:</h1>
         {/*Previous Topics loaded in from database are placed here*/}
-        {!updating && SessionArchive.map((cht, index) => (
-            <div id={index.toString()} key={index} style={{padding: 4, borderRadius: 20}} className='parent flex cursor-pointer bg-transparent hover:bg-indigo-300'>
-            <p onClick={()=> loadLecture(index)} className='font-bold'>{cht.name}</p>
+        {!updating && LectureArchive.map((lec, index) => (
+            <div id={lec.lecture_id.toString()} key={lec.lecture_id} style={{padding: 4, borderRadius: 20}} className='parent flex cursor-pointer bg-transparent hover:bg-indigo-300'>
+            <p onClick={()=> loadLecture(lec.lecture_id)} className='font-bold'>{lec.topic}</p>
             <div className='child space-x-2'>
               <svg onClick={()=>renameConvo(index)} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-pencil-line-icon lucide-pencil-line"><path d="M12 20h9"/><path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z"/><path d="m15 5 3 3"/></svg>
               <svg onClick={()=>deleteConvo(index)} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#e32400" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide cursor-pointer lucide-trash2-icon lucide-trash-2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
             </div>
           </div>
           ))}
+        <button className='underline cursor-pointer underline-offset-8' onClick={loadFromDB}>Load Lectures</button>
       </div>
       <div className="splitmain right text-lg">
         {/* This div holds the right panel */}
         <center>
+          <button onClick={()=> alert(user?.id)}>Try Me</button>
           {!Topic ? (
             <button className="py-3 cursor-pointer text-xl font-extrabold underline underline-offset-8" onClick={setNewTopic}>
               Enter a Math Topic Here
             </button>
           ):(
-            <button className="py-3 text-xl font-extrabold" onClick={setNewTopic}>
-              {Topic}
-            </button>
+            <p className="py-3 text-xl font-extrabold">
+              {Topic}              
+              <svg onClick={setNewTopic} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-pencil-line-icon lucide-pencil-line"><path d="M12 20h9"/><path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z"/><path d="m15 5 3 3"/></svg>
+            </p>
+            
           )}
+          {!Subtopic ? (
+            <button className="py-3 cursor-pointer text-xl italic underline-offset-8" onClick={setNewSubtopic}>
+              Enter a Subtopic Here
+            </button>
+          ):(
+            <p className="py-3 text-xl font-extrabold">
+              {Subtopic}              
+              <svg onClick={setNewSubtopic} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-pencil-line-icon lucide-pencil-line"><path d="M12 20h9"/><path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z"/><path d="m15 5 3 3"/></svg>
+            </p>
+          )}
+          <button onClick={testSolve}>Solve Equation?</button>
           <br />
           <div ref={chatContainer} style={{boxShadow: "0 0 30px rgb(160, 160, 160)", flex: 1, overflowY: "scroll", height: "55vh"}}> {/* //This div streams the response in real time, couldn't finish it in time */}
             {ChatStream.map((txt, index) => (
@@ -379,26 +475,31 @@ $$
             </div>
           ))}
 
-          {currentBotResponse != "" && <div className="assistantOuter"> {/* Setting the id prevents warnings/errors from the map function, otherwise it in not important*/}
+          {!InpEnabled && <div className="assistantOuter"> {/* Setting the id prevents warnings/errors from the map function, otherwise it in not important*/}
               <div className="currentInner">
-                <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
-                  {currentBotResponse}
-                </ReactMarkdown>
+                <WaveLoader></WaveLoader>
               </div>
             </div>}
           </div>
         <br/>
           <div /* style={{justifyContent: "center", alignSelf: "center"}} className='w-full fixed bottom-10' */>
             <div style={{ display: 'flex', gap: '1rem', alignItems: "center", justifyContent: "center" }}>
-              <button onClick={startLecture} className="cursor-pointer rounded-lg border sm:block bg-white p-1 hover:bg-zinc-200">
+              
+              {!Lecture ? ( 
+              <div>
+                <button onClick={()=>console.log("HI")/* lectureContinued */} className="cursor-pointer rounded-lg border sm:block bg-white p-1 hover:bg-zinc-200">
+                  Continue Lecture
+                </button>
+                <button onClick={()=>console.log("HI")/* lectureContinued */} className="cursor-pointer rounded-lg border sm:block bg-white p-1 hover:bg-zinc-200">
+                  New Lecture
+                </button>
+              </div>) : (
+                <button onClick={startLecture} className="cursor-pointer rounded-lg border sm:block bg-white p-1 hover:bg-zinc-200">
                 Start Lecture
-              </button>
-              {Lecture && 
-              <button onClick={lectureContinued} className="cursor-pointer rounded-lg border sm:block bg-white p-1 hover:bg-zinc-200">
-                Continue Lecture
-              </button>}
+                </button>
+                )}
             </div>
-            <form onSubmit={generalMessage}>
+            <form onSubmit={continueLecture}>
               {/* handleSubmit and handleInputChange are used to stream ai response in real time*/}
               <input
                 type="text"

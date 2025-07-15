@@ -1,10 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useContext } from 'react';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff } from 'lucide-react';
+import { AuthContext } from "../context/AuthContext.js";
 
 export default function SignupPage() {
+  const { login } = useContext(AuthContext);
   const [showPassword, setShowPassword] = useState(false);
   const [userType, setUserType] = useState('');
   const [formData, setFormData] = useState({
@@ -51,15 +53,16 @@ export default function SignupPage() {
       method: 'POST',
       body: form, // no need for headers; browser sets correct Content-Type
     });
+    const result = await response.json;
 
-    const result = await response.text(); // Read plain text response
-
-    const timer = setTimeout(() => {
-        setLoading(false);
+    if(result.status == true){
+      await login({
+          id: result.user_id
+        });
         alert("You're all set. Welcome to MathGPT!")
         router.push('/welcome');
-      }, 2500); //wait for one nanosecond, then toggle the bool that renders the session list
-      return () => clearTimeout(timer);
+    }
+    setLoading(false);
 
     //alert(result); // Show it in an alert box
     // Optional redirect if successful
