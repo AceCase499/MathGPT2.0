@@ -1,5 +1,4 @@
 "use client";
-//export const dynamic = "force-dynamic";
 import React, { useState } from 'react';
 import logo from '../../assets/images/logofull.png';
 
@@ -62,7 +61,7 @@ export default function NewProblemPage() {
   const handleSubmit = () => {
     const source = quizType === 'lecture' ? lecture : topic;
     const type = problemType || 'General';
-    const fakeQuestion = `What is the answer to the ultimate question of life, the universe, and everything?`;
+    const fakeQuestion = `the question generate here`;
     setGeneratedQuestion(fakeQuestion);
     setCorrectAnswer('42');
     setSubmitted(true);
@@ -116,6 +115,7 @@ export default function NewProblemPage() {
         <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
           <button style={navBtnStyle} onClick={() => handleClick('topic')}>Quiz on Topic</button>
           <button style={navBtnStyle} onClick={() => handleClick('lecture')}>Quiz on Lecture</button>
+          <button style={navBtnStyle} onClick={() => window.location.href = '/problems'}>ProblemsPage</button>
         </div>
 
         {/* Topic Input */}
@@ -143,14 +143,53 @@ export default function NewProblemPage() {
         {/* Lecture Input */}
         {quizType === 'lecture' && (
           <div style={fadeInStyle}>
-            <label><strong>Paste Lecture Content:</strong></label>
-            <textarea
-              value={lecture}
-              onChange={(e) => setLecture(e.target.value)}
-              placeholder="Paste lecture notes here..."
-              rows={4}
-              style={inputStyle}
-            />
+            <label><strong>Select Lecture Source:</strong></label>
+            <div style={{ marginBottom: '1rem' }}>
+              <label>
+                <input
+                  type="radio"
+                  name="lectureSource"
+                  value="paste"
+                  checked={!lecture.startsWith('Lecture:')}
+                  onChange={() => setLecture('')}
+                /> Paste Content
+              </label>
+              <label style={{ marginLeft: '1rem' }}>
+                <input
+                  type="radio"
+                  name="lectureSource"
+                  value="history"
+                  checked={lecture.startsWith('Lecture:')}
+                  onChange={() => setLecture('Lecture: Lecture 1')}
+                /> Choose from History
+              </label>
+            </div>
+
+            {!lecture.startsWith('Lecture:') ? (
+              <>
+                <label><strong>Paste Lecture Content:</strong></label>
+                <textarea
+                  value={lecture}
+                  onChange={(e) => setLecture(e.target.value)}
+                  placeholder="Paste lecture notes here..."
+                  rows={4}
+                  style={inputStyle}
+                />
+              </>
+            ) : (
+              <>
+                <label><strong>Select from Previous Lectures:</strong></label>
+                <select
+                  value={lecture}
+                  onChange={(e) => setLecture(e.target.value)}
+                  style={inputStyle}
+                >
+                  <option value="Lecture: Lecture 1">Lecture 1</option>
+                  <option value="Lecture: Lecture 2">Lecture 2</option>
+                  <option value="Lecture: Lecture 3">Lecture 3</option>
+                </select>
+              </>
+            )}
           </div>
         )}
 
