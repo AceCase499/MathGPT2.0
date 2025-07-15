@@ -1,18 +1,22 @@
 "use client"
-import { useContext} from 'react';
+export const dynamic = "force-dynamic";
+//import { useContext} from 'react';
 import Image from 'next/image'
 import logo from '../../assets/images/logofull.png';
-import { AuthContext } from "../context/AuthContext.js";
+import { useRouter } from 'next/navigation';
+//import { AuthContext } from "../context/AuthContext.js";
 
 const HomePage = () => {
-  const { logout } = useContext(AuthContext);
+  //const { user, logout } = useContext(AuthContext);
 
   const navigate = (path) => {
     window.location.href = path;
   };
 
   const handleLogout = () => {
-    console.log('Logged out');
+    alert("Log out successful")
+    const router = useRouter();
+    router.push("/")
   };
 
   const buttonStyle = {
@@ -75,7 +79,7 @@ const HomePage = () => {
             <button onClick={() => navigate('/newproblem')} style={buttonStyle}>New Problem</button>
             <button onClick={() => navigate('/assessment')} style={buttonStyle}>Take an Assessment Quiz</button>
             {/* <button onClick={()=> alert(user.id)} style={buttonStyle}>Try Me</button> */}
-            <button onClick={logout} style={buttonStyle}>Logout</button>
+            <button onClick={handleLogout} style={buttonStyle}>Logout</button>
           </div>
         </div>
       </main>

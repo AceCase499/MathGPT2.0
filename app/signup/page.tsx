@@ -1,12 +1,12 @@
 'use client';
-
+//export const dynamic = "force-dynamic";
 import { useState, useContext } from 'react';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff } from 'lucide-react';
-import { AuthContext } from "../context/AuthContext.js";
+//import { AuthContext } from "../context/AuthContext.js";
 
 export default function SignupPage() {
-  const { login } = useContext(AuthContext);
+  //const { login } = useContext(AuthContext);
   const [showPassword, setShowPassword] = useState(false);
   const [userType, setUserType] = useState('');
   const [formData, setFormData] = useState({
@@ -55,14 +55,17 @@ export default function SignupPage() {
     });
     const result = await response.json;
 
-    if(result.status == true){
+    /* if(result.status == true){
       await login({
           id: result.user_id
         });
         alert("You're all set. Welcome to MathGPT!")
         router.push('/welcome');
-    }
-    setLoading(false);
+    } */
+   setLoading(false);
+   alert("You're all set. Welcome to MathGPT!")
+   router.push('/welcome');
+    
 
     //alert(result); // Show it in an alert box
     // Optional redirect if successful

@@ -5,9 +5,11 @@
 //break up the problem into smaller problem that gpt can handle
 //Save current session and add it to the session list when: 
 //  (1)user closes the tab, (2)user loads an old session, (3)user creates a new session
+//give buttons and text input absolute position, and justify bottom middle CSS
 
 'use client'
 '--jsx'
+//export const dynamic = "force-dynamic";
 import React, { useRef, useEffect, useState, useContext } from 'react'
 import ReactMarkdown from 'react-markdown';
 import remarkMath from 'remark-math';
@@ -15,7 +17,7 @@ import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
 import "../chatFormat.css"
 import NavigationBar from "../../assets/components/navbar/page"
-import { AuthContext } from "../context/AuthContext.js";
+//import { AuthContext } from "../context/AuthContext.js";
 import WaveLoader from "../components/loading"
 
 
@@ -36,11 +38,8 @@ $$
 AB = \\begin{pmatrix} 2 & 3 \\\\ 1 & 4 \\end{pmatrix} \\begin{pmatrix} 5 & 2 \\\\ 0 & 1 \\end{pmatrix}
 $$
 `;
-  const [CurrentStep, setCurrentStep] = useState('')
-  //give buttons and text input absolute position, and justify bottom middle CSS
-  // an array to keep track of every step toward solving the current equation
-  //resets when a new equation is entered
-  const { user } = useContext(AuthContext);
+
+  //const { user } = useContext(AuthContext);
   const [ChatStream, setChatStream] = useState([{role: "assistant", content: "Let's begin a new math lecture!"}])
   const [LectureArchive, setLectureArchive] = useState(//the user's previous sessions will be loaded here
     [
@@ -440,7 +439,7 @@ const testSolve = async (e: React.FormEvent) => {
       <div className="splitmain right text-lg">
         {/* This div holds the right panel */}
         <center>
-          <button onClick={()=> alert(user?.id)}>Try Me</button>
+          {/* <button onClick={()=> alert(user?.id)}>Try Me</button> */}
           {!Topic ? (
             <button className="py-3 cursor-pointer text-xl font-extrabold underline underline-offset-8" onClick={setNewTopic}>
               Enter a Math Topic Here
