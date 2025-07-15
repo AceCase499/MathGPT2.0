@@ -81,7 +81,11 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+    <div
+  className="min-h-screen bg-cover bg-center flex items-center justify-center p-4"
+  style={{ backgroundImage: "url('/background.png')" }}
+>
+
       <form
         onSubmit={handleSubmit}
         className="bg-white p-8 rounded-lg shadow-md w-full max-w-lg space-y-4"

@@ -83,7 +83,12 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-100">
+    <div
+    className="flex min-h-screen items-center justify-center bg-cover bg-center"
+    style={{ backgroundImage: "url('/background.png')" }}
+  >
+  
+
       <form
         onSubmit={handleLogin}
         className="bg-white p-6 rounded-lg shadow-md w-full max-w-sm"
