@@ -19,16 +19,15 @@ import "../chatFormat.css"
 import NavigationBar from "../../assets/components/navbar/page"
 //import { AuthContext } from "../context/AuthContext.js";
 import WaveLoader from "../components/loading"
-
+import { useRouter } from 'next/navigation';
 
 export default function jsChat(){
   const [InputText, setInputText] = useState('')
   const [currentBotResponse, setCurrentBotResponse] = useState(''); // Temporary storage for streaming response
-  const [LoadedSessionName, setLoadedSessionName] = useState('New Session')
   const [InpEnabled, ttginp] = useState(true) //true = enabled, false = disabled
   const [Topic, setTopic] = useState('')
   const [Subtopic, setSubtopic] = useState('')
-  const [Lecture, tggLecture] = useState(false)
+  const [LectureStart, tggLectureStart] = useState(false)
   const [updating, tggUpdating] = useState(false)
   //const [ws, setWs] = useState(null);
   const [currentLectureID, setCurrentLectureID] = useState(0)
@@ -38,58 +37,15 @@ $$
 AB = \\begin{pmatrix} 2 & 3 \\\\ 1 & 4 \\end{pmatrix} \\begin{pmatrix} 5 & 2 \\\\ 0 & 1 \\end{pmatrix}
 $$
 `;
+const router = useRouter();
 
   //const { user } = useContext(AuthContext);
-  const [ChatStream, setChatStream] = useState([{role: "assistant", content: "Let's begin a new math lecture!"}])
-  const [LectureArchive, setLectureArchive] = useState(//the user's previous sessions will be loaded here
-    [
-      {lecture_id: 1010, topic: "First Lecture"}, 
-      {lecture_id: 2020, topic: "Second Lecture"},
-      {lecture_id: 3030, topic: "The Other Lecture"}
-    ])
-
-/*     useEffect(() => { //WEBSOCKET STREAMING
-      const socket = new WebSocket("ws://localhost:3001/"); // Change as needed
-    //const socket = new WebSocket("http://localhost:3001/");
-    setWs(socket);
-  
-    socket.onmessage = (event) => {
-      try {
-        const { chunk, objective } = JSON.parse(event.data);
-
-        switch (objective) {
-          case 'stepstep':
-            setCurrentBotResponse((prev) => prev + chunk); //Accumulate chunks
-            setCurrentStep((prev) => prev + chunk); //Accumulate chunks
-            break;
-          case 'newProb':
-            setCurrentBotResponse((prev) => prev + chunk); //Accumulate chunks
-            break;
-          default:
-            setCurrentBotResponse((prev) => prev + chunk); //Accumulate chunks
-        }
-      } catch (e) {
-        console.error('Malformed message from server:', e);
-      } finally {
-        scroll();
-      }
-    };
-  
-    socket.onclose = () => {
-      if (currentBotResponse) {
-        setChatStream(prev => [...prev, { role: "assistant", content: currentBotResponse }]);
-        setCurrentBotResponse(""); // Clear buffer
-      }
-    };
-  
-    return () => {
-      socket.close();
-    };
-  }, []); */
+  const [ChatStream, setChatStream] = useState([{sender: "ai", message: "Let's begin a new math lecture!"}])
+  const [LectureArchive, setLectureArchive] = useState([])
 
     useEffect(() => {
       //The code will run as soon as the page loads
-      loadFromDB()
+      loadLectureList()
     }, []); // The empty array ensures this effect runs only once on mount
 
 
@@ -139,10 +95,10 @@ $$
       setTopic(newTopic)
 
       if (currentBotResponse.trim()) {
-        setChatStream((prev) => [...prev, { role: "assistant", content: currentBotResponse }]);
+        setChatStream((prev) => [...prev, { sender: "ai", message: currentBotResponse }]);
         setCurrentBotResponse("");
       }
-      setChatStream((prev) => [...prev, { role: "system", content: `System: The topic was changed to "${newTopic}."`, }]);
+      setChatStream((prev) => [...prev, { sender: "system", message: `System: The topic was changed to "${newTopic}."`, }]);
       //save new chat to conversation
       ttginp(true) //enable chat bar
     } else{
@@ -160,10 +116,10 @@ $$
       setSubtopic(newTopic)
 
       if (currentBotResponse.trim()) {
-        setChatStream((prev) => [...prev, { role: "assistant", content: currentBotResponse }]);
+        setChatStream((prev) => [...prev, { sender: "ai", message: currentBotResponse }]);
         setCurrentBotResponse("");
       }
-      setChatStream((prev) => [...prev, { role: "system", content: `System: The subtopic was changed to "${newTopic}."`, }]);
+      setChatStream((prev) => [...prev, { sender: "system", message: `System: The subtopic was changed to "${newTopic}."`, }]);
       //save new chat to conversation
       ttginp(true) //enable chat bar
     } else{
@@ -175,11 +131,11 @@ $$
     e.preventDefault();
     ttginp(false);
 
-    /* if (!Topic.trim() || !user?.id) {
+    if (!Topic.trim()/* || !user?.id */) {
       alert("Please enter a topic and make sure you are logged in.");
       ttginp(true);
       return;
-    } */
+    }
     const form = new FormData();
     Object.entries({topic: Topic, student_id: "3"}).forEach(([key, value]) => {
       form.append(key, value);
@@ -195,31 +151,29 @@ $$
     }
     const data = await response.json();
     setCurrentLectureID(data.lecture_id)
-    setChatStream(prev => [...prev, { role: "assistant", content: data.lecture }]);
+    setChatStream(prev => [...prev, { sender: "ai", message: data.lecture }]);
     scroll()
-    tggLecture(true); // Enable "Continue Lecture" button
-
-  /* try {
-  } catch (error) {
-    console.error('Error:', error);
-    alert("Failed to start lecture. Please try again.");
-  } finally {
+    tggLectureStart(true); // Enable "Continue Lecture" button
     ttginp(true);
-  } */
+    loadLectureList();
 };
 
   async function continueLecture (e: React.FormEvent){
     e.preventDefault();
     ttginp(false);
-
-    /* if (!Topic.trim() || !user?.id) {
-      alert("Please enter a topic and make sure you are logged in.");
+  
+    if (currentLectureID == 0){
+      alert("Choose a topic and click the 'Start Lecture' button")
+      return
+    }
+    if (/* !user?.id */false) {
+      alert("Please make sure you are logged in.");
       ttginp(true);
       return;
-    } */
+    }
 
     const form = new FormData();
-    Object.entries({lecture_id: /* currentLectureID.toString() */"3", quesion: InputText}).forEach(([key, value]) => {
+    Object.entries({lecture_id: currentLectureID.toString(), question: InputText}).forEach(([key, value]) => {
       form.append(key, value);
     });
     
@@ -228,61 +182,12 @@ $$
       body: form
     });
 
-    /* if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    } */
     const data = await response.json();
     console.log(data)
-    setChatStream(prev => [...prev, { role: "assistant", content: data.answer }]);
-    setInputText("")
+    setChatStream(prev => [...prev, { sender: "ai", message: data.answer }]);
+    //setInputText("")
     ttginp(true) //enable chat bar
   };
-
-const testSolve = async (e: React.FormEvent) => {
-    e.preventDefault();
-    ttginp(false);
-
-    const form = new FormData();
-    Object.entries({session_id: "4"}).forEach(([key, value]) => {
-      form.append(key, value);
-    });
-
-    const response = await fetch('https://mathgptdevs25.pythonanywhere.com/mathgpt/problem/solution', {
-      method: 'POST',
-      body: JSON.stringify({session_id: 4}) /* form */
-    });
-    const data = await response.json();
-    console.log(data)
-    tggLecture(true);
-}
-
-/*   const lectureContinued = async (e: React.FormEvent) => {
-    e.preventDefault() // Prevent form default behavior
-    ttginp(false) //disable chat bar
-
-    const form = new FormData();
-    Object.entries({topic: Topic, student_id: user.id}).forEach(([key, value]) => {
-      form.append(key, value);
-    });
-
-    try {
-      const response = await fetch('https://mathgptdevs25.pythonanywhere.com/mathgpt', {
-      method: 'POST',
-      body: form, // no need for headers; browser sets correct Content-Type
-    });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-      const data = await response.json()
-      let tempChat = ChatStream
-      tempChat.push({role: "assistant", content: data.lecture})
-      setChatStream(tempChat) // Update chat stream with bot's response
-      ttginp(true) //disable chat bar
-    } catch (error) {
-      console.error('Error:', error)
-    }
-  } */
 
   function getBubbleStyle(role, inout){ //if true, get inner CSS, if false, get outer CSS
     if (role == "system"){
@@ -292,7 +197,7 @@ const testSolve = async (e: React.FormEvent) => {
         return "systemOuter"
       }
     }
-    if (role == "user"){
+    if (role == "student"){
       if (inout){
         return "userInner"
       } else{
@@ -307,97 +212,88 @@ const testSolve = async (e: React.FormEvent) => {
     }
   }
 
-  function loadLecture(lecID){
-    /* setCurrentLectureID(LectureArchive[lecID].lecture_id)
-    let loadedChat = LectureArchive[lecID].chat
-    setChatStream(loadedChat)
-    setLoadedSessionName(LectureArchive[lecID].name)
-    setCurrentBotResponse("") */
-    //alert(currentSessionID)
+  async function loadSingleLecture(lecID, lecTopic, lecSub){
+    ttginp(false);
+    setCurrentLectureID(lecID)
+    setTopic(lecTopic)
+    setSubtopic(lecSub)
+    tggLectureStart(true); // Enable "Continue Lecture" button
+    const form = new FormData();
+    Object.entries({lecture_id: lecID.toString()}).forEach(([key, value]) => {
+      form.append(key, value);
+    });
+
+    const response = await fetch('https://mathgptdevs25.pythonanywhere.com/mathgpt/session', {
+      method: 'POST',
+      body: form
+    });
+    const data = await response.json();
+    setChatStream(data)
+    ttginp(true);
+    loadLectureList();
   }
 
-  function deleteConvo(indexx){
-    let tempArc = LectureArchive
-
+  async function deleteLecture(lecID){
     let dialogue = "Delete this chat session?";
-    if(LoadedSessionName === tempArc[indexx].topic){
+    if(currentLectureID == lecID){
       dialogue += "\n(This will end your current session.)"
     }
+    
     if (confirm(dialogue) == true) {
-      tggUpdating(true)
-      let newArchive = LectureArchive
-      newArchive.splice(indexx, 1)
-      setLectureArchive(newArchive)
+      const form = new FormData();
+      Object.entries({lecture_id: lecID.toString()}).forEach(([key, value]) => {
+        form.append(key, value);
+      });
 
-      const timer = setTimeout(() => {
-        tggUpdating(false);
-      }, 1); //wait for one nanosecond, then toggle the bool that renders the session list
-      return () => clearTimeout(timer);
+      const response = await fetch('https://mathgptdevs25.pythonanywhere.com/mathgpt/delete', {
+        method: 'POST',
+        body: form
+      });
+
+      const data = await response.json();
+      console.log(data)
+      if (currentLectureID == lecID){
+        alert("Reloading the page")
+        router.refresh();
+        //router.push("/lecture2")
+      } else{
+        loadLectureList()
+      }
     } else {
       return
     }
   }
 
-  function renameConvo(lecID){
+  async function renameLecture(lecID){
     let newLectureName = prompt(
-      'Rename this Session:', //prompt
-      `New Lesson - ${new Date().toDateString()}` //placeholder
+      'Rename this Lecture:', //prompt
+      `New Lecture - ${new Date().toDateString()}` //placeholder
     )
-    let tempArchive = LectureArchive
-
     if (newLectureName != null && newLectureName.trim()){
-      tggUpdating(true)
-      const newArchive = tempArchive.map(obj => {
-      if (obj.lecture_id == lecID) {
-        return { ...obj, name: newLectureName };
-      }
-      return obj; // Return other objects as they are
-    });
-      let tempConvo = LectureArchive
-      tempConvo[lecID].topic = newLectureName
-      setLectureArchive(tempConvo)
+      const form = new FormData();
+      Object.entries({lecture_id: /* lecID.toString() */lecID, new_title: newLectureName}).forEach(([key, value]) => {
+        form.append(key, value);
+      });
+      
+      const response = await fetch('https://mathgptdevs25.pythonanywhere.com/mathgpt/rename', {
+        method: 'POST',
+        body: form
+      });
 
-      const timer = setTimeout(() => {
-        tggUpdating(false);
-      }, 1);//wait for one nanosecond, then toggle the bool that renders the session list
-      return () => clearTimeout(timer);
-    } else{
-      alert("This value cannot be empty!")
+      /* if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      } */
+      const data = await response.json();
+      console.log(data)
     }
   }
 
-  function getLectureIDs(){
-    let IDs = []
-      LectureArchive.forEach(convo => {
-        IDs.push(convo.lecture_id)
-      });
-      return(IDs)
-  }
-
-  function newLecture(){
-/*   
-    let newTopic = prompt(
-      'Which math topic do you want to study?', //prompt
-      `New Topic - ${new Date().toDateString()}` //placeholder
-    )
-    setTopic(newTopic)
-    let newSubtopic = prompt(
-      'Enter a subtopic to focus on.', //prompt
-      `Subtopic - ${new Date().toDateString()}` //placeholder
-    )
-    setSubtopic(newSubtopic)
-
-
-    setCurrentLectureID(response.lecture_id)
-    setChatStream([{role: "assistant", content: "Let's begin a new math lecture!"}]) */
-  }
-
-  async function loadFromDB(){
+  async function loadLectureList(){
     ttginp(false);
     tggUpdating(true);
 
     const form = new FormData();
-    Object.entries({ student_id: "3"}).forEach(([key, value]) => {
+    Object.entries({ student_id: "3" /* SET STUDENT ID TO BE USER'S ID */}).forEach(([key, value]) => {
       form.append(key, value);
     });
 
@@ -405,14 +301,8 @@ const testSolve = async (e: React.FormEvent) => {
       method: 'POST',
       body: form
     });
-
-    /* if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    } */
-    const data = await response.json();
-    console.log(data)
+    const data = await response.json();    
     setLectureArchive(data)
-    tggLecture(true); // Enable "Continue Lecture" button
     ttginp(true);
     tggUpdating(false)
   }
@@ -422,59 +312,58 @@ const testSolve = async (e: React.FormEvent) => {
       <NavigationBar/>
       <div className="splitsub left bg-slate-300 text-xl h-full">
         {/* This div holds the left panel */}
-        <button className='underline cursor-pointer underline-offset-8' onClick={()=>newLecture()}>Start a New Lecture</button>
+        <p onClick={()=>router.refresh()} className="py-3 text-xl font-extrabold underline underline-offset-8">
+          Start a new Lecture
+        </p>
         <h1 className="text-blue-600 px-3 pt-3 font-extrabold">Previous Sessions:</h1>
         {/*Previous Topics loaded in from database are placed here*/}
         {!updating && LectureArchive.map((lec, index) => (
             <div id={lec.lecture_id.toString()} key={lec.lecture_id} style={{padding: 4, borderRadius: 20}} className='parent flex cursor-pointer bg-transparent hover:bg-indigo-300'>
-            <p onClick={()=> loadLecture(lec.lecture_id)} className='font-bold'>{lec.topic}</p>
+            <p onClick={()=> loadSingleLecture(lec.lecture_id, lec.topic, lec.subtopic)} className='font-bold fadeTargetIn'>{lec.title}</p>
             <div className='child space-x-2'>
-              <svg onClick={()=>renameConvo(index)} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-pencil-line-icon lucide-pencil-line"><path d="M12 20h9"/><path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z"/><path d="m15 5 3 3"/></svg>
-              <svg onClick={()=>deleteConvo(index)} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#e32400" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide cursor-pointer lucide-trash2-icon lucide-trash-2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
+              <svg onClick={()=>renameLecture(lec.lecture_id)} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-pencil-line-icon lucide-pencil-line"><path d="M12 20h9"/><path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z"/><path d="m15 5 3 3"/></svg>
+              <svg onClick={()=>deleteLecture(lec.lecture_id)} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#e32400" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide cursor-pointer lucide-trash2-icon lucide-trash-2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
             </div>
           </div>
           ))}
-        <button className='underline cursor-pointer underline-offset-8' onClick={loadFromDB}>Load Lectures</button>
       </div>
       <div className="splitmain right text-lg">
         {/* This div holds the right panel */}
-        <center>
           {/* <button onClick={()=> alert(user?.id)}>Try Me</button> */}
           {!Topic ? (
-            <button className="py-3 cursor-pointer text-xl font-extrabold underline underline-offset-8" onClick={setNewTopic}>
+            <button className="mx-auto w-full py-1 cursor-pointer text-xl font-extrabold underline underline-offset-8" onClick={setNewTopic}>
               Enter a Math Topic Here
             </button>
           ):(
-            <p className="py-3 text-xl font-extrabold">
+            <p className="flex justify-center space-x-4 text-xl font-extrabold underline underline-offset-8">
               {Topic}              
-              <svg onClick={setNewTopic} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-pencil-line-icon lucide-pencil-line"><path d="M12 20h9"/><path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z"/><path d="m15 5 3 3"/></svg>
+              <svg onClick={setNewTopic} xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="cursor-pointer lucide lucide-pencil-line-icon lucide-pencil-line"><path d="M12 20h9"/><path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z"/><path d="m15 5 3 3"/></svg>
             </p>
             
           )}
           {!Subtopic ? (
-            <button className="py-3 cursor-pointer text-xl italic underline-offset-8" onClick={setNewSubtopic}>
+            <button className="mx-auto w-full py-3 cursor-pointer text-xl italic underline-offset-8" onClick={setNewSubtopic}>
               Enter a Subtopic Here
             </button>
           ):(
-            <p className="py-3 text-xl font-extrabold">
+            <p className="flex justify-center space-x-4 italic underline-offset-8">
               {Subtopic}              
-              <svg onClick={setNewSubtopic} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-pencil-line-icon lucide-pencil-line"><path d="M12 20h9"/><path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z"/><path d="m15 5 3 3"/></svg>
+              <svg onClick={setNewSubtopic} xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="cursor-pointer lucide lucide-pencil-line-icon lucide-pencil-line"><path d="M12 20h9"/><path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z"/><path d="m15 5 3 3"/></svg>
             </p>
           )}
-          <button onClick={testSolve}>Solve Equation?</button>
-          <br />
+        <center>
           <div ref={chatContainer} style={{boxShadow: "0 0 30px rgb(160, 160, 160)", flex: 1, overflowY: "scroll", height: "55vh"}}> {/* //This div streams the response in real time, couldn't finish it in time */}
-            {ChatStream.map((txt, index) => (
-            <div id={index.toString()} key={index} className={getBubbleStyle(txt.role, false)}> {/* Setting the id prevents warnings/errors from the map function, otherwise it in not important*/}
-              <div className={getBubbleStyle(txt.role, true)}>
+            {ChatStream.map((chat, index) => (
+              <div id={index.toString()} key={index} className={getBubbleStyle(chat.sender, false)}> {/* Setting the id prevents warnings/errors from the map function, otherwise it in not important*/}
+              <div className={getBubbleStyle(chat.sender, true)+" fadeTargetIn"}>
                 <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
-                  {txt.content}
+                  {chat.message}
                 </ReactMarkdown>
               </div>
             </div>
           ))}
 
-          {!InpEnabled && <div className="assistantOuter"> {/* Setting the id prevents warnings/errors from the map function, otherwise it in not important*/}
+          {InpEnabled == false && <div className="assistantOuter"> {/* Setting the id prevents warnings/errors from the map function, otherwise it in not important*/}
               <div className="currentInner">
                 <WaveLoader></WaveLoader>
               </div>
@@ -484,14 +373,20 @@ const testSolve = async (e: React.FormEvent) => {
           <div /* style={{justifyContent: "center", alignSelf: "center"}} className='w-full fixed bottom-10' */>
             <div style={{ display: 'flex', gap: '1rem', alignItems: "center", justifyContent: "center" }}>
               
-              {!Lecture ? ( 
-              <div>
-                <button onClick={()=>console.log("HI")/* lectureContinued */} className="cursor-pointer rounded-lg border sm:block bg-white p-1 hover:bg-zinc-200">
-                  Continue Lecture
-                </button>
-                <button onClick={()=>console.log("HI")/* lectureContinued */} className="cursor-pointer rounded-lg border sm:block bg-white p-1 hover:bg-zinc-200">
-                  New Lecture
-                </button>
+              {LectureStart == true ? ( 
+              <div className='flex space-x-2 pb-2'>
+                <button onClick={continueLecture} className="cursor-pointer rounded-lg border sm:block bg-white p-1 hover:bg-zinc-200">
+                    Continue Lecture
+                  </button>
+                  <button onClick={renameLecture} className="cursor-pointer rounded-lg border sm:block bg-white p-1 hover:bg-zinc-200">
+                    Rename This Lecture
+                  </button>
+                  <button onClick={()=> router.refresh()} className="cursor-pointer rounded-lg border sm:block bg-white p-1 hover:bg-zinc-200">
+                    New Lecture
+                  </button>
+                  <button style={{borderColor: "blue"}} onClick={()=> router.push("/newproblem")} className="cursor-pointer rounded-lg border sm:block bg-white p-1 hover:bg-zinc-200">
+                    Problem Solving Mode
+                  </button>
               </div>) : (
                 <button onClick={startLecture} className="cursor-pointer rounded-lg border sm:block bg-white p-1 hover:bg-zinc-200">
                 Start Lecture

@@ -19,6 +19,16 @@
   }
 }
 
+@keyframes fadeInAnimation {
+    0% {
+        opacity: 0;
+    }
+
+    100% {
+        opacity: 1;
+    }
+  }
+
 body {
   background: var(--background);
   color: var(--foreground);
@@ -30,6 +40,12 @@ body {
   align-self: flex-start;
   margin: auto;
   text-align: center;
+}
+
+.fadeTargetIn {
+  animation: fadeInAnimation ease 2s;
+  animation-iteration-count: 1;
+  animation-fill-mode: forwards;
 }
 
 .parent .child {
