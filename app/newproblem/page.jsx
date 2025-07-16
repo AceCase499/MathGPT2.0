@@ -189,6 +189,7 @@ export default function NewProblemPage() {
           <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
             <button style={navBtnStyle} onClick={() => handleClick('topic')}>Quiz on Topic</button>
             <button style={navBtnStyle} onClick={() => handleClick('lecture')}>Quiz on Lecture</button>
+             <button style={navBtnStyle} onClick={() => window.location.href = '/problems'}>Go to Problem Page</button>
           </div>
 
           {quizType === 'topic' && (
