@@ -444,11 +444,11 @@ export default function AssessmentEntry() {
         finishAssessment();
       } else {
         if (currentIndex + 1 < filteredQuestions.length) {
-          setCurrentIndex(currentIndex + 1)
-          setSelectedOption(null)
-          setFeedback('')
-          setLocked(false)
-        } else {
+        setCurrentIndex(currentIndex + 1)
+        setSelectedOption(null)
+        setFeedback('')
+        setLocked(false)
+      } else {
           finishAssessment();
         }
       }
@@ -504,6 +504,8 @@ export default function AssessmentEntry() {
     }
   }, [showSummary]);
 
+  const isTeacherOrAdmin = user && (user.user_type === 'teacher' || user.user_type === 'admin');
+
   return (
     <div className="w-full flex flex-col min-h-screen bg-white">
       {/* Assessment start modal */}
@@ -554,7 +556,7 @@ export default function AssessmentEntry() {
         </div>
       )}
 
-      {settingsLoaded && (
+      {settingsLoaded && isTeacherOrAdmin && (
         <div className="flex flex-1 flex-col items-center justify-center min-h-screen w-full">
           <div className="p-8 max-w-xl w-full bg-gray-100 shadow-xl rounded-xl flex flex-col items-center justify-center text-center my-12">
             <h2 className="text-lg font-bold mb-2">Assessment Settings (Teacher/Admin)</h2>
@@ -681,23 +683,23 @@ export default function AssessmentEntry() {
               <div className="text-2xl text-black">Skill Assessment</div>
             </div>
             <div className="p-8 w-full bg-gray-100 shadow-xl rounded-lg text-center relative pb-4 min-h-[400px] flex flex-col justify-center">
-              <button
-                onClick={handlePause}
-                className="absolute top-4 left-4 text-gray-600 hover:text-gray-800"
-                title="Pause Assessment"
-              >
-                <Pause size={24} />
-              </button>
-              <h3 className="text-2xl font-medium mb-8 text-gray-800">
+          <button
+            onClick={handlePause}
+            className="absolute top-4 left-4 text-gray-600 hover:text-gray-800"
+            title="Pause Assessment"
+          >
+            <Pause size={24} />
+          </button>
+          <h3 className="text-2xl font-medium mb-8 text-gray-800">
                 Question {currentIndex + 1} of {filteredQuestions.length}
-              </h3>
+          </h3>
               <p className="mb-6 font-medium text-xl text-gray-700">{filteredQuestions[currentIndex].text}</p>
               {filteredQuestions[currentIndex].type === 'mcq' && filteredQuestions[currentIndex].options && (
-                <div className="space-y-4 mb-8">
+          <div className="space-y-4 mb-8">
                   {filteredQuestions[currentIndex].options.map((opt, i) => (
-                    <button
-                      key={i}
-                      disabled={locked}
+              <button
+                key={i}
+                disabled={locked}
                       onClick={() => {
                         setSelectedOption(i);
                         setSelectedConfidence(null); // Reset confidence when changing answer
@@ -706,13 +708,13 @@ export default function AssessmentEntry() {
                         selectedOption === i
                           ? 'border-blue-500 bg-blue-50 text-blue-900 font-semibold'
                           : 'border-gray-300 text-gray-600 hover:bg-gray-100'
-                      }`}
-                    >
+                }`}
+              >
                       {/* No emoji for selected option */}
-                      {String.fromCharCode(65 + i)}. {opt}
-                    </button>
-                  ))}
-                </div>
+                {String.fromCharCode(65 + i)}. {opt}
+              </button>
+            ))}
+          </div>
               )}
 
               {filteredQuestions[currentIndex].type === 'numeric' && (
@@ -791,13 +793,13 @@ export default function AssessmentEntry() {
               {/* Show Submit button only if not locked and no feedback yet */}
               {(!locked && feedback === '') && (
                 <div className="flex justify-center w-full">
-                  <button
-                    onClick={handleSubmit}
+          <button
+            onClick={handleSubmit}
                     disabled={selectedOption === null || selectedConfidence === null || locked}
                     className="mt-8 w-72 py-3 rounded-full text-lg font-semibold shadow transition-all duration-150 border-2 bg-blue-600 text-white border-blue-700 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:opacity-50"
-                  >
+          >
                     Submit
-                  </button>
+          </button>
                 </div>
               )}
               {/* Show feedback in place of the button after submit */}

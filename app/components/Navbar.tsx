@@ -39,6 +39,7 @@ export default function Navbar() {
 
         {isLoggedIn && (
           <>
+            <Link href="/courses" className="text-gray-700 hover:text-black font-medium">Courses</Link>
             <Link href="/lecture2" className="text-gray-700 hover:text-black font-medium">Lectures</Link>
             <Link href="/newproblem" className="text-gray-700 hover:text-black font-medium">New Problem</Link>
           </>

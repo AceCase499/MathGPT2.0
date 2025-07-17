@@ -66,6 +66,7 @@ export default function SignupPage() {
           await login({
             id: result.user_id,
             username: formData.username,
+            user_type: formData.user_type,
           });
           alert("You're all set. Welcome to MathGPT!");
           router.push('/welcome');
@@ -78,6 +79,11 @@ export default function SignupPage() {
         // Not JSON, show text as info or success
         const text = await response.text();
         if (text.toLowerCase().includes('user created')) {
+          // Fallback: still call login with what we have
+          await login({
+            username: formData.username,
+            user_type: formData.user_type,
+          });
           alert("You're all set. Welcome to MathGPT!");
           router.push('/welcome');
           setLoading(false);
