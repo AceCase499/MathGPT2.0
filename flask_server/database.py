@@ -149,7 +149,7 @@ class Problem_Sessions(Base):
     title: Mapped[str] = mapped_column(String)
     topic: Mapped[str] = mapped_column(String)
     source: Mapped[str] = mapped_column(String)
-    created_at: Mapped[Optional[str]] = mapped_column(String)
+    created_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     solution: Mapped[str] = mapped_column(Text)
     hint: Mapped[str] = mapped_column(Text)
     user_answer: Mapped[Optional[str]] = mapped_column(Text, nullable=True)

@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify, render_template
 from openai import OpenAI
-from datetime import datetime
+from datetime import datetime, timezone
 import uuid
 from flask import Blueprint
 from dotenv import load_dotenv
@@ -28,6 +28,7 @@ def start_lecture():
         return jsonify({'error': 'Missing topic or student_id'}), 400
 
     prompt = f"Give a multi-paragraph lecture on: {topic}. Please make sure this is math related or respond with a short message encouraging the user to stay focused on math. Use real world examples, and provide a fun fact related to the topic. If you cannot provide a lecture on the topic, respond with a short message encouraging the user to stay focused on math."
+    prompt += "Please write math expressions inside dollar signs like this: $single line math expression$, $$multi-line math expression$$."
     messages = [{"role": "user", "content": prompt}]
 
     response = client.chat.completions.create(
@@ -57,7 +58,7 @@ def start_lecture():
                 lecture_id=new_lecture.id,
                 sender="student" if msg["role"] == "user" else "ai",
                 message=msg["content"],
-                timestamp=datetime.utcnow()
+                timestamp=datetime.now(timezone.utc)
             )
             session.add(chat)
 
@@ -81,7 +82,7 @@ def followup():
         for msg in prev_messages:
             messages.append({"role": "user" if msg.sender == "student" else "assistant", "content": msg.message})
 
-        messages.append({"role": "user", "content": question})
+        messages.append({"role": "user", "content": question + "\nPlease write math expressions inside dollar signs like this: $single line math expression$, $$multi-line math expression$$."})
 
         response = client.chat.completions.create(
             model="gpt-4o",
@@ -93,13 +94,13 @@ def followup():
             lecture_id=lecture_id,
             sender="student",
             message=question,
-            timestamp=datetime.utcnow()
+            timestamp=datetime.now(timezone.utc)
         )
         chat_ai = LectureChat(
             lecture_id=lecture_id,
             sender="ai",
             message=answer,
-            timestamp=datetime.now(tz=datetime.UTC)
+            timestamp=datetime.now(timezone.utc)
         )
 
         session.add_all([chat_user, chat_ai])
@@ -119,7 +120,7 @@ def complete():
     return jsonify({"message": "Lecture marked as complete"})
 
 
-@lecture_bp.route('/mathgpt/session', methods=['GET'])
+@lecture_bp.route('/mathgpt/session', methods=['GET', 'POST'])
 def get_session():
     lecture_id = request.form.get('lecture_id')
     with Session(engine) as session:
@@ -136,6 +137,8 @@ def list_lectures():
         result = [{
             "lecture_id": lec.id,
             "topic": lec.topic,
+            "subtopic": lec.subtopic,
+            "title": lec.title,
             "created_at": lec.chat_messages[0].timestamp.isoformat() if lec.chat_messages else None,
             "updated_at": lec.chat_messages[-1].timestamp.isoformat() if lec.chat_messages else None
         } for lec in lectures]
@@ -173,6 +176,8 @@ def delete():
         lecture = session.get(Lectures, lecture_id)
         if not lecture:
             return jsonify({'error': 'Lecture not found'}), 404
+        for chat in lecture.chat_messages:
+            session.delete(chat)
         session.delete(lecture)
         session.commit()
         return jsonify({'message': 'Lecture deleted'})

@@ -1,6 +1,6 @@
 import os
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from dotenv import load_dotenv
 from flask import Blueprint, request, jsonify, render_template
 from openai import OpenAI
@@ -41,6 +41,7 @@ def start_problem():
             return jsonify(error="Missing topic"), 400
         prompt = (
             f"You are a math instructor. Create a challenging math problem on: {topic}.\n"
+            "Please write math expressions inside dollar signs like this: $single line math expression$, $$multi-line math expression$$.\n"
             "### Problem\n\n### Solution\n\n### Hint\n"
         )
         source = 'topic'
@@ -62,8 +63,9 @@ def start_problem():
             lecture_text = last.message if last else lecture.content
             prompt = (
                 "You are a math instructor. Based on this lecture, generate one math problem.\n"
-                "### Problem\n\n### Solution\n\n### Hint\n\n"
                 "Don't regurgitate the lecture, only generate a problem based on it.\n"
+                "Please write math expressions inside dollar signs like this: $single line math expression$, $$multi-line math expression$$.\n"
+                "### Problem\n\n### Solution\n\n### Hint\n\n"
                 f"[Lecture]\n{lecture_text}"
             )
         source = f"lecture:{lecture_id}"
@@ -88,11 +90,11 @@ def start_problem():
     # persist
     with Session(engine) as session:
         ps = Problem_Sessions(
-            student_id=int(data.get('student_id',0)),
+            student_id=int(request.form.get('student_id',0)),
             title=topic,
             topic=topic,
             source=source,
-            created_at=datetime.utcnow().isoformat(),
+            created_at=datetime.now(timezone.utc),
             solution=solution,
             hint=hint,
             user_answer=None,
@@ -144,7 +146,8 @@ def submit_answer():
             "The above line is the answer the student gives\n"
             "Please compliment the student if they are correct\n"
             "Also don't assume they gave any solution if they didn't mention it\n"
-            "Evaluate correctness and give brief feedback. Complement their methods or ask for their work if they gave none. Also try to suggest hints if they get wrong and not directly tell them."
+            "Evaluate correctness and give brief feedback. Complement their methods or ask for their work if they gave none. Also try to suggest hints if they get wrong and not directly tell them.\n"
+            "Please write math expressions inside dollar signs like this: $single line math expression$, $$multi-line math expression$$."
         )
         resp = client.chat.completions.create(
             model="gpt-4o",
