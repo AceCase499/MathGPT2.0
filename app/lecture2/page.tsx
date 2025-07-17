@@ -17,11 +17,18 @@ import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
 import "../chatFormat.css"
 import NavigationBar from "../../assets/components/navbar/page"
-//import { AuthContext } from "../context/AuthContext.js";
+import { AuthContext } from "../context/AuthContext";
 import WaveLoader from "../components/loading"
 import { useRouter } from 'next/navigation';
 
 export default function jsChat(){
+  const { user } = useContext(AuthContext) as any;
+  const router = useRouter();
+  useEffect(() => {
+    if (!user) {
+      router.replace('/');
+    }
+  }, [user, router]);
   const [InputText, setInputText] = useState('')
   const [currentBotResponse, setCurrentBotResponse] = useState(''); // Temporary storage for streaming response
   const [InpEnabled, ttginp] = useState(true) //true = enabled, false = disabled
@@ -37,7 +44,6 @@ $$
 AB = \\begin{pmatrix} 2 & 3 \\\\ 1 & 4 \\end{pmatrix} \\begin{pmatrix} 5 & 2 \\\\ 0 & 1 \\end{pmatrix}
 $$
 `;
-const router = useRouter();
 
   //const { user } = useContext(AuthContext);
   const [ChatStream, setChatStream] = useState([{sender: "ai", message: "Let's begin a new math lecture!"}])

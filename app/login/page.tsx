@@ -1,14 +1,14 @@
 'use client';
 import { useRouter } from 'next/navigation';
-import { useState/* , useContext */ } from 'react';
-//import { AuthContext } from "../context/AuthContext.js";
+import { useState, useContext } from 'react';
+import { AuthContext, type AuthContextType } from '../context/AuthContext';
 
 export default function LoginPage() {
-  /* const context = useContext(AuthContext);
+  const context = useContext(AuthContext) as AuthContextType;
   if (!context) {
     throw new Error("AuthContext not available. Ensure this component is wrapped in <AuthProvider>.");
   }
-  const { user, login } = context; */
+  const { user, login } = context;
   const router = useRouter();
 
   const [username, setUsername] = useState('');
@@ -53,10 +53,12 @@ export default function LoginPage() {
       setLoading(false)
     }
     if (result.status == true){
-      /* await login({
-        id: result.user_id
-      }); */
-      alert("Welcome back to MathGPT!")
+      await login({
+        id: result.user_id,
+        username: username,
+        // add other fields if needed
+      });
+      alert("Welcome back to MathGPT!");
       router.push('/welcome');
     }
 

@@ -1,15 +1,16 @@
 'use client';
 
-import { useSupabaseClient } from '@supabase/auth-helpers-react';
+import { useContext } from 'react';
 import { useRouter } from 'next/navigation';
+import { AuthContext } from '../context/AuthContext';
 
 export default function LogoutButton() {
-  const supabase = useSupabaseClient();
+  const { logout } = useContext(AuthContext) as any;
   const router = useRouter();
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    router.push('/login');
+  const handleLogout = () => {
+    logout(); // This clears sessionStorage and updates AuthContext
+    router.push('/login'); // Optional: in case you want to always redirect to login
   };
 
   return (

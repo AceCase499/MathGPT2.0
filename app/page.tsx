@@ -1,10 +1,20 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useContext, useEffect } from 'react';
+import { AuthContext } from './context/AuthContext';
+import { useRouter } from 'next/navigation';
 import Image from 'next/image'
 import Navbar from './components/Navbar'
 
 export default function Home() {
+  const { user } = useContext(AuthContext) as any;
+  const router = useRouter();
+  useEffect(() => {
+    if (user) {
+      router.replace('/welcome');
+    }
+  }, [user, router]);
+
   const [formData, setFormData] = useState({
     email: '',
     password: '',

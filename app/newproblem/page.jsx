@@ -1,8 +1,18 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import logo from '../../assets/images/logofull.png';
+import { AuthContext } from '../context/AuthContext';
+import { useRouter } from 'next/navigation';
 
 export default function NewProblemPage() {
+  const { user } = useContext(AuthContext) || {};
+  const router = useRouter();
+  useEffect(() => {
+    if (!user) {
+      router.replace('/');
+    }
+  }, [user, router]);
+
   const BASE_URL = "https://mathgptdevs25.pythonanywhere.com";
 
   const [quizType, setQuizType] = useState('');

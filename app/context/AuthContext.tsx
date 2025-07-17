@@ -3,12 +3,23 @@
 import React, { createContext, useState, useEffect } from "react";
 import { useRouter } from 'next/navigation';
 
+type AuthContextType = {
+  user: any;
+  login: (userData: any) => void;
+  logout: () => void;
+};
 
-export const AuthContext = createContext();
+export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider = ({ children }) => {
+export type { AuthContextType };
+
+type AuthProviderProps = {
+  children: React.ReactNode;
+};
+
+export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const router = useRouter();
-  const [user, setUser] = useState(() => {
+  const [user, setUser] = useState<any>(() => {
     if (typeof window !== 'undefined') {
       const storedUser = sessionStorage.getItem("user");
       return storedUser ? JSON.parse(storedUser) : null;

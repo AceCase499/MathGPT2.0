@@ -4,19 +4,23 @@ export const dynamic = "force-dynamic";
 import Image from 'next/image'
 import logo from '../../assets/images/logofull.png';
 import { useRouter } from 'next/navigation';
+import { useContext } from 'react';
+import { AuthContext } from '../context/AuthContext';
 //import { AuthContext } from "../context/AuthContext.js";
 
 const HomePage = () => {
   //const { user, logout } = useContext(AuthContext);
+  const { logout } = useContext(AuthContext);
+  const router = useRouter();
 
   const navigate = (path) => {
     window.location.href = path;
   };
 
   const handleLogout = () => {
-    alert("Log out successful")
-    const router = useRouter();
-    router.push("/")
+    logout();
+    alert("Log out successful");
+    router.push("/");
   };
 
   const buttonStyle = {
@@ -33,32 +37,6 @@ const HomePage = () => {
 
   return (
     <div style={{ minHeight: '100vh', color: 'black', backgroundColor: 'white', display: 'flex', flexDirection: 'column' }}>
-      {/* Top Navigation Bar */}
-      <nav style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem', borderBottom: '1px solid black' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <img src={logo} alt="MathGPT Logo" style={{ height: '30px' }} />
-          <button style={buttonStyle} onClick={() => navigate('/lecture2')}>Lectures</button>
-          <button style={buttonStyle} onClick={() => navigate('/problems')}>Problems</button>
-          <button style={buttonStyle} onClick={() => navigate('/assessment')}>Assessments</button>
-        </div>
-        <button
-          onClick={()=>handleLogout}
-          title="Profile / Logout"
-          style={{
-            backgroundColor: 'white',
-            border: '1px solid black',
-            borderRadius: '50%',
-            width: '48px',
-            height: '48px',
-            fontSize: '1.5rem',
-            color: 'black',
-            cursor: 'pointer'
-          }}
-        >
-          👤
-        </button>
-      </nav>
-
       {/* Main Body */}
       <main style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flexGrow: 1 }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2rem' }}>

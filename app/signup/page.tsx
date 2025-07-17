@@ -3,10 +3,10 @@
 import { useState, useContext } from 'react';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff } from 'lucide-react';
-//import { AuthContext } from "../context/AuthContext.js";
+import { AuthContext } from "../context/AuthContext";
 
 export default function SignupPage() {
-  //const { login } = useContext(AuthContext);
+  const { login } = useContext(AuthContext) as any;
   const [showPassword, setShowPassword] = useState(false);
   const [userType, setUserType] = useState('');
   const [formData, setFormData] = useState({
@@ -43,41 +43,53 @@ export default function SignupPage() {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
+    try {
+      const form = new FormData();
+      Object.entries(formData).forEach(([key, value]) => {
+        form.append(key, value);
+      });
 
-    const form = new FormData();
-    Object.entries(formData).forEach(([key, value]) => {
-      form.append(key, value);
-    });
+      const response = await fetch('https://mathgptdevs25.pythonanywhere.com/create_user', {
+        method: 'POST',
+        body: form,
+      });
 
-    const response = await fetch('https://mathgptdevs25.pythonanywhere.com/create_user', {
-      method: 'POST',
-      body: form, // no need for headers; browser sets correct Content-Type
-    });
-    const result = await response.json;
-
-    /* if(result.status == true){
-      await login({
-          id: result.user_id
-        });
-        alert("You're all set. Welcome to MathGPT!")
-        router.push('/welcome');
-    } */
-   setLoading(false);
-   alert("You're all set. Welcome to MathGPT!")
-   router.push('/welcome');
-    
-
-    //alert(result); // Show it in an alert box
-    // Optional redirect if successful
-    /* if (result.toLowerCase().includes('User created')) {
-      if (formData.user_type === 'student') {
-        router.push('/welcome');
-      } else if (formData.user_type === 'tutor') {
-        router.push('/dashboard');
-      } else {
-        router.push('/dashboard');
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
       }
-    } */
+
+      const contentType = response.headers.get('content-type');
+      let result;
+      if (contentType && contentType.includes('application/json')) {
+        result = await response.json();
+        if(result.status == true){
+          await login({
+            id: result.user_id,
+            username: formData.username,
+          });
+          alert("You're all set. Welcome to MathGPT!");
+          router.push('/welcome');
+          setLoading(false);
+          return;
+        } else {
+          alert("Signup failed. Please try again.");
+        }
+      } else {
+        // Not JSON, show text as info or success
+        const text = await response.text();
+        if (text.toLowerCase().includes('user created')) {
+          alert("You're all set. Welcome to MathGPT!");
+          router.push('/welcome');
+          setLoading(false);
+          return;
+        } else {
+          throw new Error(text);
+        }
+      }
+    } catch (err: any) {
+      alert('Signup error: ' + (err.message || err));
+    }
+    setLoading(false);
   };
 
   return (
