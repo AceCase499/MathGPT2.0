@@ -131,9 +131,9 @@ export default function LoginPage() {
 </p>
 
       </form>
-      <button onClick={tryme} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md">
+      {/* <button onClick={tryme} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md">
         Try Me
-      </button>
+      </button> */}
     </div>
   );
 }

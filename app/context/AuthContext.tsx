@@ -5,7 +5,10 @@ import { useRouter } from 'next/navigation';
 
 type AuthContextType = {
   user: any;
+  equation: string | null;
   login: (userData: any) => void;
+  storeEquation: (equationStr: string) => void;
+  deleteEquation: () => void;
   logout: () => void;
 };
 
@@ -27,7 +30,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return null;
   });
 
-  const login = (userData) => {
+  const [equation, setEquation] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem("Equation");
+    }
+    return null;
+  });
+
+  const login = (userData: any) => {
     setUser(userData);
     if (typeof window !== 'undefined') {
       sessionStorage.setItem("user", JSON.stringify(userData));
@@ -36,10 +46,25 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const logout = () => {
     setUser(null);
+    setEquation(null);
     if (typeof window !== 'undefined') {
       sessionStorage.removeItem("user");
-      alert("logout successful")
+      sessionStorage.removeItem("Equation");
       router.push('/');
+    }
+  };
+
+  const storeEquation = (equationStr: string) => {
+    setEquation(equationStr);
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem("Equation", equationStr);
+    }
+  };
+
+  const deleteEquation = () => {
+    setEquation(null);
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem("Equation");
     }
   };
 
@@ -47,11 +72,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     if (typeof window !== 'undefined') {
       const stored = sessionStorage.getItem("user");
       if (stored) setUser(JSON.parse(stored));
+      const storedEq = sessionStorage.getItem("Equation");
+      if (storedEq) setEquation(storedEq);
     }
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, login, logout }}>
+    <AuthContext.Provider value={{ user, equation, login, logout, storeEquation, deleteEquation }}>
       {children}
     </AuthContext.Provider>
   );

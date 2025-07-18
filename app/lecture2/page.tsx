@@ -22,7 +22,7 @@ import WaveLoader from "../components/loading"
 import { useRouter } from 'next/navigation';
 
 export default function jsChat(){
-  const { user } = useContext(AuthContext) as any;
+  const { user, storeEquation, equation } = useContext(AuthContext) as any;
   const router = useRouter();
   useEffect(() => {
     if (!user) {
@@ -35,6 +35,7 @@ export default function jsChat(){
   const [Topic, setTopic] = useState('')
   const [Subtopic, setSubtopic] = useState('')
   const [LectureStart, tggLectureStart] = useState(false)
+  const [MathEquation, setMathEquation] = useState("")
   const [updating, tggUpdating] = useState(false)
   //const [ws, setWs] = useState(null);
   const [currentLectureID, setCurrentLectureID] = useState(0)
@@ -45,7 +46,6 @@ AB = \\begin{pmatrix} 2 & 3 \\\\ 1 & 4 \\end{pmatrix} \\begin{pmatrix} 5 & 2 \\\
 $$
 `;
 
-  //const { user } = useContext(AuthContext);
   const [ChatStream, setChatStream] = useState([{sender: "ai", message: "Let's begin a new math lecture!"}])
   const [LectureArchive, setLectureArchive] = useState([])
 
@@ -136,6 +136,7 @@ $$
    const startLecture = async (e: React.FormEvent) => {
     e.preventDefault();
     ttginp(false);
+    //alert(Topic+" "+user.id)
 
     if (!Topic.trim()/* || !user?.id */) {
       alert("Please enter a topic and make sure you are logged in.");
@@ -143,7 +144,7 @@ $$
       return;
     }
     const form = new FormData();
-    Object.entries({topic: Topic, student_id: "3"}).forEach(([key, value]) => {
+    Object.entries({topic: Topic, student_id: user.id}).forEach(([key, value]) => {
       form.append(key, value);
     });
 
@@ -158,6 +159,14 @@ $$
     const data = await response.json();
     setCurrentLectureID(data.lecture_id)
     setChatStream(prev => [...prev, { sender: "ai", message: data.lecture }]);
+
+    const regex = /\${1,2}([^$]+?)\${1,2}/g;
+    const matches = Array.from(data.lecture.matchAll(regex));
+    if (matches.length > 0) {
+      const lastMatch = matches[matches.length - 1];
+      alert(`A new math problem is available for practice:\n ${lastMatch[0]}`)
+      setMathEquation(lastMatch[0])
+    }
     scroll()
     tggLectureStart(true); // Enable "Continue Lecture" button
     ttginp(true);
@@ -166,6 +175,9 @@ $$
 
   async function continueLecture (e: React.FormEvent){
     e.preventDefault();
+    if(!InputText.trim()){
+      return
+    }
     ttginp(false);
   
     if (currentLectureID == 0){
@@ -191,8 +203,17 @@ $$
     const data = await response.json();
     console.log(data)
     setChatStream(prev => [...prev, { sender: "ai", message: data.answer }]);
-    //setInputText("")
+
+    const regex = /\${1,2}([^$]+?)\${1,2}/g;
+    const matches = Array.from(data.answer.matchAll(regex));
+    if (matches.length > 0) {
+      const lastMatch = matches[matches.length - 1];
+      alert(`A new math problem is available for practice:\n ${lastMatch[0]}`)
+      setMathEquation(lastMatch[0])
+    }
+    setInputText("")
     ttginp(true) //enable chat bar
+    scroll()
   };
 
   function getBubbleStyle(role, inout){ //if true, get inner CSS, if false, get outer CSS
@@ -259,9 +280,8 @@ $$
       const data = await response.json();
       console.log(data)
       if (currentLectureID == lecID){
-        alert("Reloading the page")
-        router.refresh();
-        //router.push("/lecture2")
+        //router.refresh();
+        router.push("/lecturehome")
       } else{
         loadLectureList()
       }
@@ -285,12 +305,9 @@ $$
         method: 'POST',
         body: form
       });
-
-      /* if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      } */
       const data = await response.json();
       console.log(data)
+      loadLectureList()
     }
   }
 
@@ -299,7 +316,7 @@ $$
     tggUpdating(true);
 
     const form = new FormData();
-    Object.entries({ student_id: "3" /* SET STUDENT ID TO BE USER'S ID */}).forEach(([key, value]) => {
+    Object.entries({ student_id: user.id }).forEach(([key, value]) => {
       form.append(key, value);
     });
 
@@ -311,6 +328,26 @@ $$
     setLectureArchive(data)
     ttginp(true);
     tggUpdating(false)
+  }
+
+  async function markComplete(){
+    const form = new FormData();
+    Object.entries({ lecture_id: currentLectureID.toString() }).forEach(([key, value]) => {
+      form.append(key, value);
+    });
+
+    const response = await fetch('https://mathgptdevs25.pythonanywhere.com/mathgpt/complete', {
+      method: 'POST',
+      body: form
+    });
+    const data = await response.json();    
+    setLectureArchive(data)
+  }
+
+  function goToProblemPage(){
+    storeEquation(MathEquation);
+    router.push("/lecturehome")
+    //window.location.href = `/newproblem?Equation=${encodeURIComponent(Equation)}`
   }
 
   return (
@@ -381,23 +418,25 @@ $$
               
               {LectureStart == true ? ( 
               <div className='flex space-x-2 pb-2'>
-                <button onClick={continueLecture} className="cursor-pointer rounded-lg border sm:block bg-white p-1 hover:bg-zinc-200">
-                    Continue Lecture
-                  </button>
-                  <button onClick={renameLecture} className="cursor-pointer rounded-lg border sm:block bg-white p-1 hover:bg-zinc-200">
+                  <button onClick={()=>renameLecture(currentLectureID)} className="cursor-pointer rounded-lg border sm:block bg-white p-1 hover:bg-zinc-200">
                     Rename This Lecture
                   </button>
                   <button onClick={()=> router.refresh()} className="cursor-pointer rounded-lg border sm:block bg-white p-1 hover:bg-zinc-200">
                     New Lecture
                   </button>
-                  <button style={{borderColor: "blue"}} onClick={()=> router.push("/newproblem")} className="cursor-pointer rounded-lg border sm:block bg-white p-1 hover:bg-zinc-200">
-                    Problem Solving Mode
+                  <button style={{borderColor: "green"}} onClick={markComplete} className="cursor-pointer rounded-lg border sm:block bg-white p-1 hover:bg-zinc-200">
+                    Complete Lecture
                   </button>
               </div>) : (
                 <button onClick={startLecture} className="cursor-pointer rounded-lg border sm:block bg-white p-1 hover:bg-zinc-200">
                 Start Lecture
                 </button>
                 )}
+                {equation?.trim() && 
+                  <button style={{borderColor: "blue"}} onClick={goToProblemPage} className="cursor-pointer rounded-lg border sm:block bg-white p-1 hover:bg-zinc-200">
+                    Solve the Math Problem
+                  </button>
+                  }
             </div>
             <form onSubmit={continueLecture}>
               {/* handleSubmit and handleInputChange are used to stream ai response in real time*/}

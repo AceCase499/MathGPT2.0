@@ -21,7 +21,7 @@ export default function Navbar() {
     setMounted(true);
   }, []);
 
-  console.log('Navbar user:', user);
+  //console.log('Navbar user:', user);
 
   if (!mounted) {
     return null;
