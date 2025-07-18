@@ -60,7 +60,9 @@ export default function SignupPage() {
 
       const contentType = response.headers.get('content-type');
       let result;
-      if (contentType && contentType.includes('application/json')) {
+      if (true/* contentType && contentType.includes('application/json') */) {
+        //the content type is formdata, not json.  After testing, I found that the user data never
+        //gets stored locally because of this if statement (Jerrod)
         result = await response.json();
         if(result.status == true){
           await login({

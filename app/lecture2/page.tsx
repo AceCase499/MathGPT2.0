@@ -27,6 +27,8 @@ export default function jsChat(){
   useEffect(() => {
     if (!user) {
       router.replace('/');
+    } else {
+      //alert(user.id+" "+user.username)
     }
   }, [user, router]);
   const [InputText, setInputText] = useState('')
@@ -164,7 +166,7 @@ $$
     const matches = Array.from(data.lecture.matchAll(regex));
     if (matches.length > 0) {
       const lastMatch = matches[matches.length - 1];
-      alert(`A new math problem is available for practice:\n ${lastMatch[0]}`)
+      /* alert(`A new math problem is available for practice:\n ${lastMatch[0]}`) */
       setMathEquation(lastMatch[0])
     }
     scroll()
@@ -208,7 +210,7 @@ $$
     const matches = Array.from(data.answer.matchAll(regex));
     if (matches.length > 0) {
       const lastMatch = matches[matches.length - 1];
-      alert(`A new math problem is available for practice:\n ${lastMatch[0]}`)
+      /* alert(`A new math problem is available for practice:\n ${lastMatch[0]}`) */
       setMathEquation(lastMatch[0])
     }
     setInputText("")
@@ -346,7 +348,7 @@ $$
 
   function goToProblemPage(){
     storeEquation(MathEquation);
-    router.push("/lecturehome")
+    router.push("/newproblem")
     //window.location.href = `/newproblem?Equation=${encodeURIComponent(Equation)}`
   }
 
@@ -432,11 +434,11 @@ $$
                 Start Lecture
                 </button>
                 )}
-                {equation?.trim() && 
+                {/* {MathEquation.trim() != "" && 
                   <button style={{borderColor: "blue"}} onClick={goToProblemPage} className="cursor-pointer rounded-lg border sm:block bg-white p-1 hover:bg-zinc-200">
                     Solve the Math Problem
                   </button>
-                  }
+                  } */}
             </div>
             <form onSubmit={continueLecture}>
               {/* handleSubmit and handleInputChange are used to stream ai response in real time*/}

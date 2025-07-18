@@ -3,6 +3,10 @@ import React, { useState, useEffect, useContext } from 'react';
 import logo from '../../assets/images/logofull.png';
 import { AuthContext } from '../context/AuthContext';
 import { useRouter } from 'next/navigation';
+import ReactMarkdown from 'react-markdown';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
+import 'katex/dist/katex.min.css';
 
 export default function NewProblemPage() {
   const { user } = useContext(AuthContext) || {};
@@ -322,7 +326,9 @@ export default function NewProblemPage() {
                 marginBottom: '1.5rem'
               }}>
                 <strong>Question:</strong>
-                <p>{generatedQuestion}</p>
+                <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
+                  {generatedQuestion}
+                </ReactMarkdown>
               </div>
 
               <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
@@ -353,7 +359,9 @@ export default function NewProblemPage() {
               {explanation && (
                 <div style={{ marginTop: '1.5rem', backgroundColor: '#eef', padding: '1rem', borderRadius: '6px' }}>
                   <strong>Explanation:</strong>
-                  <p>{explanation}</p>
+                  <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
+                    {explanation}
+                  </ReactMarkdown>
                 </div>
               )}
 
