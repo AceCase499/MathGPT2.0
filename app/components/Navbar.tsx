@@ -51,7 +51,7 @@ export default function Navbar() {
         {/* <span style={{color:'red',fontSize:10}}>{user ? JSON.stringify(user) : 'no user'}</span> */}
         {isLoggedIn ? (
           <Link
-            href="/profile"
+            href="/profilepage"
             className="text-gray-700 hover:text-black text-lg"
             title="Go to Profile"
           >

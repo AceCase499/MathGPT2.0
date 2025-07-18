@@ -46,11 +46,17 @@ export default function ProfilePage() {
         {/* Sidebar */}
         <div className="w-full md:w-1/3 bg-gray-100 p-6 flex flex-col items-center space-y-4">
           <div className="relative group">
-            <img
-              src={profile.avatar || 'https://via.placeholder.com/120?text=Avatar'}
-              alt="Avatar"
-              className="w-32 h-32 rounded-full border-4 border-white shadow"
-            />
+            <div className="w-32 h-32 rounded-full bg-gray-300 flex items-center justify-center text-2xl font-bold text-gray-600 border-4 border-white shadow overflow-hidden">
+              {profile.avatar ? (
+                <img
+                  src={profile.avatar}
+                  alt="Avatar"
+                  className="w-full h-full object-cover rounded-full"
+                />
+              ) : (
+                "Avatar"
+              )}
+            </div>
             <input
               type="file"
               accept="image/*"
