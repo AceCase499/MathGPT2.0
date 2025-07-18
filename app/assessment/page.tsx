@@ -18,21 +18,21 @@ interface Question {
   answer?: number | string // For numeric/proof
   type: 'mcq' | 'numeric' | 'proof' | 'graph'
   topic: string // For strengths/gaps analysis
+  hint?: string // For hints
 }
 
 
 const mockQuestions: Question[] = [
-  { id: 1, text: 'What is 2 + 2?', options: ['3', '4', '5', '6'], correctIndex: 1, type: 'mcq', topic: 'Addition' },
-  { id: 2, text: 'What is 5 × 3?', options: ['8', '15', '10', '13'], correctIndex: 1, type: 'mcq', topic: 'Multiplication' },
-  { id: 3, text: 'What is √16?', answer: 4, type: 'numeric', topic: 'Square Roots' },
-  { id: 4, text: 'Prove that the sum of two even numbers is even.', answer: 'proof', type: 'proof', topic: 'Proofs' },
-  // Add a graph question as a stub
-  { id: 5, text: 'Plot the graph of y = x^2.', type: 'graph', topic: 'Graphing' },
-  { id: 6, text: 'What is 7 + 6?', options: ['11', '13', '14', '12'], correctIndex: 1, type: 'mcq', topic: 'Addition' },
-  { id: 7, text: 'What is 12 - 4?', answer: 8, type: 'numeric', topic: 'Subtraction' },
-  { id: 8, text: 'What is 6 × 6?', options: ['36', '30', '12', '18'], correctIndex: 0, type: 'mcq', topic: 'Multiplication' },
-  { id: 9, text: 'What is 100 ÷ 25?', options: ['2', '3', '4', '5'], correctIndex: 2, type: 'mcq', topic: 'Division' },
-  { id: 10, text: 'What is 9 + 10?', options: ['19', '21', '20', '15'], correctIndex: 0, type: 'mcq', topic: 'Addition' },
+  { id: 1, text: 'What is 2 + 2?', options: ['3', '4', '5', '6'], correctIndex: 1, type: 'mcq', topic: 'Addition', hint: 'Think about pairs of numbers.' },
+  { id: 2, text: 'What is 5 × 3?', options: ['8', '15', '10', '13'], correctIndex: 1, type: 'mcq', topic: 'Multiplication', hint: 'Multiplication is repeated addition.' },
+  { id: 3, text: 'What is √16?', answer: 4, type: 'numeric', topic: 'Square Roots', hint: 'What number times itself gives 16?' },
+  { id: 4, text: 'Prove that the sum of two even numbers is even.', answer: 'proof', type: 'proof', topic: 'Proofs', hint: 'Express even numbers as 2k.' },
+  { id: 5, text: 'Plot the graph of y = x^2.', type: 'graph', topic: 'Graphing', hint: 'Try plotting points for x = -2, -1, 0, 1, 2.' },
+  { id: 6, text: 'What is 7 + 6?', options: ['11', '13', '14', '12'], correctIndex: 1, type: 'mcq', topic: 'Addition', hint: 'Add 7 and 6 together.' },
+  { id: 7, text: 'What is 12 - 4?', answer: 8, type: 'numeric', topic: 'Subtraction', hint: 'Subtract 4 from 12.' },
+  { id: 8, text: 'What is 6 × 6?', options: ['36', '30', '12', '18'], correctIndex: 0, type: 'mcq', topic: 'Multiplication', hint: '6 times 6 is?' },
+  { id: 9, text: 'What is 100 ÷ 25?', options: ['2', '3', '4', '5'], correctIndex: 2, type: 'mcq', topic: 'Division', hint: 'How many times does 25 fit into 100?' },
+  { id: 10, text: 'What is 9 + 10?', options: ['19', '21', '20', '15'], correctIndex: 0, type: 'mcq', topic: 'Addition', hint: 'Add 9 and 10.' },
 ]
 
 // Add GraphingTool component above the main AssessmentEntry function
@@ -88,14 +88,10 @@ function GraphingTool({ value, onChange, disabled, func, showAnswer }: { value: 
 
 
 async function fetchMicroLecture(strengths: string[], gaps: string[]): Promise<string> {
-  const res = await fetch('/api/microlecture', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ strengths, gaps, max_tokens: 120 }),
-  });
-  if (!res.ok) throw new Error('Failed to fetch micro-lecture');
-  const data = await res.json();
-  return data.lecture;
+  // mock 返回
+  return Promise.resolve(
+    "This is a mock micro-lecture. Practice makes perfect! Focus on your weak topics and review your strengths regularly."
+  );
 }
 
 export default function AssessmentEntry() {
@@ -135,6 +131,7 @@ export default function AssessmentEntry() {
   const [showMicroLecture, setShowMicroLecture] = useState(false);
   const [showGoNext, setShowGoNext] = useState(false);
   const [microLectureAI, setMicroLectureAI] = useState<string | null>(null);
+  const [showHint, setShowHint] = useState(false);
 
   // Change timer state to always be a number
   const [timer, setTimer] = useState(() => parseInt(settings.timePerItem) || 60);
@@ -504,6 +501,8 @@ export default function AssessmentEntry() {
     }
   }, [showSummary]);
 
+  useEffect(() => { setShowHint(false); }, [currentIndex, inAssessment]);
+
   const isTeacherOrAdmin = user && (user.user_type === 'teacher' || user.user_type === 'admin');
 
   return (
@@ -759,6 +758,26 @@ export default function AssessmentEntry() {
                     showAnswer={false}
                   />
                   <div className="mt-2 text-sm text-gray-500">Click on the grid to plot points for your answer.</div>
+                </div>
+              )}
+
+              {settings.hintAvailable && filteredQuestions[currentIndex].hint && (
+                <div className="mt-4 flex flex-col items-center">
+                  <button
+                    onClick={() => setShowHint(true)}
+                    className={`flex items-center gap-2 px-5 py-2 rounded-full bg-yellow-400 text-white font-semibold shadow-lg transition-all duration-150 hover:bg-yellow-500 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-yellow-300 ${showHint ? 'opacity-60 cursor-not-allowed' : ''}`}
+                    disabled={showHint}
+                    style={{ fontSize: '1.1rem' }}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24"><path fill="#fff" d="M12 2a7 7 0 0 0-7 7c0 2.386 1.32 4.434 3.25 5.5V17a2 2 0 0 0 2 2h1.5a2 2 0 0 0 2-2v-2.5C17.68 13.434 19 11.386 19 9a7 7 0 0 0-7-7Zm1.5 15a.5.5 0 0 1-.5.5H11a.5.5 0 0 1-.5-.5v-1h3v1Zm-1.5-3c-2.757 0-5-2.243-5-5a5 5 0 1 1 10 0c0 2.757-2.243 5-5 5Z"/></svg>
+                    Show Hint
+                  </button>
+                  {showHint && (
+                    <div className="mt-4 w-full max-w-md mx-auto flex items-start gap-3 bg-yellow-50 border-l-4 border-yellow-400 shadow-md rounded-lg p-4 animate-fade-in">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="none" viewBox="0 0 24 24"><path fill="#facc15" d="M12 2a7 7 0 0 0-7 7c0 2.386 1.32 4.434 3.25 5.5V17a2 2 0 0 0 2 2h1.5a2 2 0 0 0 2-2v-2.5C17.68 13.434 19 11.386 19 9a7 7 0 0 0-7-7Zm1.5 15a.5.5 0 0 1-.5.5H11a.5.5 0 0 1-.5-.5v-1h3v1Zm-1.5-3c-2.757 0-5-2.243-5-5a5 5 0 1 1 10 0c0 2.757-2.243 5-5 5Z"/></svg>
+                      <span className="text-yellow-800 text-base font-medium" style={{lineHeight: '1.6'}}>{filteredQuestions[currentIndex].hint}</span>
+                    </div>
+                  )}
                 </div>
               )}
 
