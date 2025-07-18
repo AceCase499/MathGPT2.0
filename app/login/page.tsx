@@ -56,7 +56,7 @@ export default function LoginPage() {
       await login({
         id: result.user_id,
         username: username,
-        // add other fields if needed
+        user_type: result.user_type, // store user_type for role-based UI
       });
       alert("Welcome back to MathGPT!");
       router.push('/welcome');
@@ -87,7 +87,7 @@ export default function LoginPage() {
   return (
     <div
     className="flex min-h-screen items-center justify-center bg-cover bg-center"
-    style={{ backgroundImage: "url('/background.png')" }}
+    style={{ backgroundImage: "url('/Background.png')" }}
   >
   
 
@@ -131,9 +131,6 @@ export default function LoginPage() {
 </p>
 
       </form>
-      {/* <button onClick={tryme} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md">
-        Try Me
-      </button> */}
     </div>
   );
 }
