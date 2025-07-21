@@ -174,6 +174,21 @@ def redirect_to_chat():
 def chat_simulator():
     return render_template('chat_simulator.html')
 
+@app.route('/updatebio', methods=['POST'])
+def update_bio():
+    student_id = request.form.get('student_id')
+    if not student_id:
+        return "Missing student_id", 400
+    new_bio = request.form.get('bio')
+
+    with Session(engine) as session:
+        user = session.query(Student).filter_by(id=student_id).first()
+        if user:
+            user.bio = new_bio
+            session.commit()
+            return "Bio updated successfully"
+        return "User not found", 404
+
 # Example code for chat_view.html
 """<h2>Lecture Chat</h2>
 <ul>

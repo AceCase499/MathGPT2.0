@@ -88,6 +88,7 @@ class Student(User):
     staring_assessment: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     current_subject: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     progress_percentage: Mapped[Optional[float]] = mapped_column(String, nullable=True)
+    bio: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     # Relationship to link Student with Tutor
     tutor: Mapped[Optional["Tutor"]] = relationship(
