@@ -88,7 +88,6 @@ function GraphingTool({ value, onChange, disabled, func, showAnswer }: { value: 
 
 
 async function fetchMicroLecture(strengths: string[], gaps: string[]): Promise<string> {
-  // mock 返回
   return Promise.resolve(
     "This is a mock micro-lecture. Practice makes perfect! Focus on your weak topics and review your strengths regularly."
   );
@@ -647,17 +646,19 @@ export default function AssessmentEntry() {
       )}
 
       {skippedAssessment && !inAssessment && !showSummary && !showModal && (
-        <div className="p-8 max-w-xl mx-auto text-center bg-white rounded-lg shadow-xl">
-          <h2 className="text-2xl font-bold mb-4 text-gray-800">Welcome to MathGPT</h2>
-          <p className="text-gray-700 mb-6">
-            You can take the skill assessment anytime to get a personalized experience.
-          </p>
-          <button
-            onClick={handleTakeNow}
-            className="px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white text-lg font-medium rounded-lg"
-          >
-            Take Assessment
-          </button>
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="p-8 max-w-xl mx-auto text-center bg-white rounded-lg shadow-xl">
+            <h2 className="text-2xl font-bold mb-4 text-gray-800">Welcome to MathGPT</h2>
+            <p className="text-gray-700 mb-6">
+              You can take the skill assessment anytime to get a personalized experience.
+            </p>
+            <button
+              onClick={handleTakeNow}
+              className="px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white text-lg font-medium rounded-lg"
+            >
+              Take Assessment
+            </button>
+          </div>
         </div>
       )}
 

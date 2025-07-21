@@ -34,6 +34,31 @@ export default function Home() {
     }
   }
 
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [profile, setProfile] = useState({ age: '', grade: '', topic: '', goal: '' });
+
+  useEffect(() => {
+    if (user) {
+      const saved = localStorage.getItem('PRIV-05_profile');
+      if (!saved) {
+        setShowProfileModal(true);
+      } else {
+        router.replace('/welcome');
+      }
+    }
+  }, [user, router]);
+
+  const handleProfileChange = (e) => {
+    setProfile({ ...profile, [e.target.name]: e.target.value });
+  };
+
+  const handleProfileSubmit = (e) => {
+    e.preventDefault();
+    localStorage.setItem('PRIV-05_profile', JSON.stringify(profile));
+    setShowProfileModal(false);
+    router.replace('/welcome');
+  };
+
   return (
     <div className="min-h-screen flex flex-col items-center bg-white text-gray-900">
       <Navbar/>
@@ -110,6 +135,33 @@ export default function Home() {
           Register (Simulated)
         </button>
       </section>
+
+      {showProfileModal && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center">
+          <div className="bg-white rounded-lg shadow-lg p-8 w-full max-w-md">
+            <h2 className="text-2xl font-bold mb-4 text-center">Personalize Your Experience</h2>
+            <form onSubmit={handleProfileSubmit} className="space-y-4">
+              <div>
+                <label className="block font-medium mb-1">Age</label>
+                <input type="number" name="age" value={profile.age} onChange={handleProfileChange} required min={5} max={100} className="w-full border rounded px-3 py-2" />
+              </div>
+              <div>
+                <label className="block font-medium mb-1">Grade</label>
+                <input type="text" name="grade" value={profile.grade} onChange={handleProfileChange} required className="w-full border rounded px-3 py-2" />
+              </div>
+              <div>
+                <label className="block font-medium mb-1">Favorite Topic</label>
+                <input type="text" name="topic" value={profile.topic} onChange={handleProfileChange} required className="w-full border rounded px-3 py-2" />
+              </div>
+              <div>
+                <label className="block font-medium mb-1">Learning Goal</label>
+                <input type="text" name="goal" value={profile.goal} onChange={handleProfileChange} required className="w-full border rounded px-3 py-2" />
+              </div>
+              <button type="submit" className="w-full py-3 bg-blue-600 text-white rounded-full font-semibold mt-4">Save</button>
+            </form>
+          </div>
+        </div>
+      )}
 
       <footer className="mt-20 text-sm text-gray-500 py-6">
         &copy; {new Date().getFullYear()} MathGPT. All rights reserved.

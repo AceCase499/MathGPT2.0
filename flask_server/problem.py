@@ -197,6 +197,71 @@ def delete():
         session.commit()
     return jsonify(message="Session deleted")
 
+# TC9.0 – answer mode: get quick answer and steps
+@problem_bp.route('/mathgpt/problem/answer_mode', methods=['POST'])
+def answer_mode():
+    question = request.form.get('question')
+    student_id = request.form.get('student_id')
+    if not question:
+        return jsonify(error="Missing question"), 400
+
+    try:
+        student_id = int(student_id)
+    except (ValueError, TypeError):
+        return jsonify(error="Invalid or missing student_id"), 400
+
+    # test if the student_id exist
+    from database import Student
+    with Session(engine) as chk:
+        if not chk.get(Student, student_id):
+            return jsonify(error=f"Student {student_id} not found"), 404
+
+    # construct the Prompt
+    prompt = (
+        "You are a math tutor. Please answer the following question:\n\n"
+        f"{question}\n\n"
+        "First, give ONLY the final answer wrapped inside [Answer]...[/Answer].\n"
+        "Then, give a detailed step-by-step explanation.\n"
+        "Use $...$ for inline math, $$...$$ for block math."
+    )
+
+    resp = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[{"role": "user", "content": prompt}]
+    )
+    content = resp.choices[0].message.content
+
+    if "[Answer]" not in content or "[/Answer]" not in content:
+        return jsonify(error="Bad format from AI", raw=content), 500
+
+    final_answer = content.split("[Answer]", 1)[1].split("[/Answer]", 1)[0].strip()
+    explanation = content.split("[/Answer]", 1)[1].strip()
+
+    # store into Problem_Sessions
+    with Session(engine) as session:
+        ps = Problem_Sessions(
+            student_id=student_id,
+            title=question[:60],  # truncate if too long
+            topic="Answer Mode",
+            source="answer_mode",
+            created_at=datetime.now(timezone.utc),
+            solution=explanation,
+            hint=final_answer,
+            user_answer=None,
+            is_done=False
+        )
+        session.add(ps)
+        session.flush()
+        session_id = ps.id
+        session.commit()
+
+    return jsonify(
+        session_id=session_id,
+        question=question,
+        final_answer=final_answer,
+        steps=explanation
+    )
+
 
 # list all problem sessions
 @problem_bp.route('/mathgpt/problem/list', methods=['GET'])

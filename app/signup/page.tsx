@@ -44,13 +44,13 @@ export default function SignupPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      const form = new FormData();
-      Object.entries(formData).forEach(([key, value]) => {
-        form.append(key, value);
-      });
+    const form = new FormData();
+    Object.entries(formData).forEach(([key, value]) => {
+      form.append(key, value);
+    });
 
-      const response = await fetch('https://mathgptdevs25.pythonanywhere.com/create_user', {
-        method: 'POST',
+    const response = await fetch('https://mathgptdevs25.pythonanywhere.com/create_user', {
+      method: 'POST',
         body: form,
       });
 
@@ -63,6 +63,16 @@ export default function SignupPage() {
       if (contentType && contentType.includes('application/json')) {
         result = await response.json();
         if(result.status == true){
+          // 保存注册信息到 localStorage
+          localStorage.setItem('PRIV-05_profile', JSON.stringify({
+            email: formData.email,
+            name: formData.name,
+            age: formData.age,
+            grade: formData.grade,
+            district: formData.district,
+            user_type: formData.user_type,
+            username: formData.username
+          }));
           await login({
             id: result.user_id,
             username: formData.username,
@@ -80,6 +90,15 @@ export default function SignupPage() {
         const text = await response.text();
         if (text.toLowerCase().includes('user created')) {
           // Fallback: still call login with what we have
+          localStorage.setItem('PRIV-05_profile', JSON.stringify({
+            email: formData.email,
+            name: formData.name,
+            age: formData.age,
+            grade: formData.grade,
+            district: formData.district,
+            user_type: formData.user_type,
+            username: formData.username
+          }));
           await login({
             username: formData.username,
             user_type: formData.user_type,
