@@ -3,34 +3,78 @@
 <head>
   <meta charset="UTF-8">
   <title>MathGPT Lecture Tester</title>
+  <style>
+    #chat { 
+      margin-top: 20px; padding: 10px; 
+      border: 1px solid #ccc; white-space: pre-wrap;
+      height: 300px; overflow-y: auto;
+    }
+  </style>
   <script>
     let lectureId = null;
 
     async function startLecture() {
-      const topic = document.getElementById('topic').value;
-      const studentId = document.getElementById('student_id').value;
-      const res = await fetch(`/mathgpt?topic=${encodeURIComponent(topic)}&student_id=${studentId}`);
+      const topic     = document.getElementById('topic').value.trim();
+      const studentId = document.getElementById('student_id').value.trim();
+      if (!topic || !studentId) {
+        return alert('Please enter both Student ID and Topic');
+      }
+
+      // Build form data
+      const form = new URLSearchParams();
+      form.append('topic', topic);
+      form.append('student_id', studentId);
+
+      // POST to /mathgpt
+      const res = await fetch('/mathgpt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: form.toString()
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        return alert(err?.error || await res.text());
+      }
+
       const data = await res.json();
       lectureId = data.lecture_id;
 
+      // Render the AI's lecture
       const chatBox = document.getElementById('chat');
-      chatBox.innerHTML = `<div><strong>AI:</strong> ${data.lecture}</div>`;
+      chatBox.textContent = `AI: ${data.lecture}`;
       document.getElementById('followupSection').style.display = 'block';
     }
 
     async function sendFollowup() {
-      const question = document.getElementById('followup').value;
+      if (!lectureId) return alert('No active lecture session');
+
+      const question = document.getElementById('followup').value.trim();
+      if (!question) return alert('Please enter a question');
+
+      // Build form data
+      const form = new URLSearchParams();
+      form.append('lecture_id', lectureId);
+      form.append('question', question);
+
+      // POST to /mathgpt/followup
       const res = await fetch('/mathgpt/followup', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lecture_id: lectureId, question: question })
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: form.toString()
       });
-      const data = await res.json();
 
+      if (!res.ok) {
+        return alert(await res.text());
+      }
+
+      const data = await res.json();
       const chatBox = document.getElementById('chat');
-      chatBox.innerHTML += `<div><strong>You:</strong> ${question}</div>`;
-      chatBox.innerHTML += `<div><strong>AI:</strong> ${data.answer}</div>`;
+
+      // Append user question and AI answer
+      chatBox.textContent += `\n\nYou: ${question}\nAI: ${data.answer}`;
       document.getElementById('followup').value = '';
+      chatBox.scrollTop = chatBox.scrollHeight;
     }
   </script>
 </head>
@@ -40,9 +84,9 @@
   <input type="text" id="topic" placeholder="Topic">
   <button onclick="startLecture()">Start Lecture</button>
 
-  <div id="chat" style="margin-top: 20px; padding: 10px; border: 1px solid #ccc;"></div>
+  <div id="chat"></div>
 
-  <div id="followupSection" style="display:none; margin-top: 20px;">
+  <div id="followupSection" style="display:none; margin-top:20px;">
     <input type="text" id="followup" placeholder="Ask a follow-up">
     <button onclick="sendFollowup()">Send</button>
   </div>

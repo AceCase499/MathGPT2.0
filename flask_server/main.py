@@ -56,7 +56,7 @@ def create_user():
                     user = Student(
                         user_type="Student",
                         name=request.form.get('name'),
-                        email = request.form.get('email'),
+                        email = "None",
                         district=request.form.get('district'),
                         age=request.form.get('age'),
                         teacher_id=None,
@@ -64,7 +64,8 @@ def create_user():
                         grade=1,
                         staring_assessment=None,
                         current_subject=None,
-                        progress_percentage=None
+                        progress_percentage=None,
+                        bio=None
                     )
                 elif user_type == 'tutor':
                     user = Tutor(

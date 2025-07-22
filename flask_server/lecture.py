@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify, render_template
 from openai import OpenAI
-from datetime import datetime
+from datetime import datetime, timezone
 import uuid
 from flask import Blueprint
 from dotenv import load_dotenv
@@ -76,19 +76,19 @@ def start_lecture():
                 lecture_id=new_lecture.id,
                 sender="system",
                 message=bio,
-                timestamp=datetime.now(datetime.utcnow())
+                timestamp=datetime.now(timezone.utc)
             ),
             LectureChat(
                 lecture_id=new_lecture.id,
                 sender="student",
                 message=user_prompt,
-                timestamp=datetime.now(datetime.utcnow())
+                timestamp=datetime.now(timezone.utc)
             ),
             LectureChat(
                 lecture_id=new_lecture.id,
                 sender="ai",
                 message=content,
-                timestamp=datetime.now(datetime.utcnow())
+                timestamp=datetime.now(timezone.utc)
             )
         ])
         session.commit()
@@ -146,13 +146,13 @@ def followup():
                 lecture_id=lecture_id,
                 sender="student",
                 message=question,
-                timestamp=datetime.now(datetime.utcnow())
+                timestamp=datetime.now(timezone.utc)
             ),
             LectureChat(
                 lecture_id=lecture_id,
                 sender="ai",
                 message=answer,
-                timestamp=datetime.now(datetime.utcnow())
+                timestamp=datetime.now(timezone.utc)
             )
         ])
         session.commit()
