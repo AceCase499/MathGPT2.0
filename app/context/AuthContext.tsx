@@ -21,7 +21,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const router = useRouter();
   const [user, setUser] = useState<any>(() => {
     if (typeof window !== 'undefined') {
-      const storedUser = sessionStorage.getItem("user");
+      const storedUser = sessionStorage.getItem("user") || localStorage.getItem("user");
       return storedUser ? JSON.parse(storedUser) : null;
     }
     return null;
@@ -31,6 +31,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setUser(userData);
     if (typeof window !== 'undefined') {
       sessionStorage.setItem("user", JSON.stringify(userData));
+      localStorage.setItem("user", JSON.stringify(userData));
     }
   };
 
@@ -38,6 +39,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setUser(null);
     if (typeof window !== 'undefined') {
       sessionStorage.removeItem("user");
+      localStorage.removeItem("user");
       alert("logout successful")
       router.push('/');
     }
@@ -45,7 +47,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const stored = sessionStorage.getItem("user");
+      let stored = sessionStorage.getItem("user");
+      if (!stored) {
+        stored = localStorage.getItem("user");
+        if (stored) sessionStorage.setItem("user", stored);
+      }
       if (stored) setUser(JSON.parse(stored));
     }
   }, []);

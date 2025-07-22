@@ -63,7 +63,6 @@ export default function SignupPage() {
       if (contentType && contentType.includes('application/json')) {
         result = await response.json();
         if(result.status == true){
-          // 保存注册信息到 localStorage
           localStorage.setItem('PRIV-05_profile', JSON.stringify({
             email: formData.email,
             name: formData.name,
@@ -71,16 +70,16 @@ export default function SignupPage() {
             grade: formData.grade,
             district: formData.district,
             user_type: formData.user_type,
-            username: formData.username
+            username: formData.username,
           }));
-          await login({
+      await login({
             id: result.user_id,
             username: formData.username,
             user_type: formData.user_type,
-          });
+        });
           alert("You're all set. Welcome to MathGPT!");
-          router.push('/welcome');
-          setLoading(false);
+        router.push('/welcome');
+   setLoading(false);
           return;
         } else {
           alert("Signup failed. Please try again.");
@@ -89,7 +88,7 @@ export default function SignupPage() {
         // Not JSON, show text as info or success
         const text = await response.text();
         if (text.toLowerCase().includes('user created')) {
-          // Fallback: still call login with what we have
+         
           localStorage.setItem('PRIV-05_profile', JSON.stringify({
             email: formData.email,
             name: formData.name,
@@ -97,9 +96,10 @@ export default function SignupPage() {
             grade: formData.grade,
             district: formData.district,
             user_type: formData.user_type,
-            username: formData.username
+            username: formData.username,
           }));
           await login({
+            id: 0, // mock id, 后端返回文本时无法获取真实 id
             username: formData.username,
             user_type: formData.user_type,
           });

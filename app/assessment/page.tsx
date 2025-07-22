@@ -1,5 +1,4 @@
-'use client'
-export const dynamic = "force-dynamic";
+"use client";
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -8,6 +7,7 @@ import { Pause } from 'lucide-react'
 import { useRef } from 'react';
 import { useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
+import dynamic from 'next/dynamic';
 
 
 interface Question {
@@ -120,6 +120,7 @@ export default function AssessmentEntry() {
     timePerItem: '60', // string for input
     hintAvailable: true,
     stopRulePrecision: '0.8', // string for input
+    numQuestions: '15', // Added for number of questions
   });
   const [settingsWarning, setSettingsWarning] = useState('');
   const [settingsLoaded, setSettingsLoaded] = useState(false);
@@ -145,31 +146,34 @@ export default function AssessmentEntry() {
   const [correctnessArr, setCorrectnessArr] = useState<boolean[]>([]);
 
   useEffect(() => {
-    // Fetch personalization info (FERPA/COPPA: do not store PII in localStorage in production)
-    const profile = localStorage.getItem('PRIV-05_profile'); // RBAC: Only accessible to student/teacher
-    if (profile) {
-      setPersonalization(JSON.parse(profile));
-    }
-    // Fetch teacher-selected questions if available
-    const teacherQuestions = localStorage.getItem('PRIV-05_teacher_questions'); // RBAC: Only accessible to teacher
-    if (teacherQuestions) {
-      try {
-        const parsed = JSON.parse(teacherQuestions);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setFilteredQuestions(parsed);
-          return;
-        }
-      } catch {}
-    }
-    // Otherwise, filter mockQuestions by personalization
-    if (profile) {
-      const { age, grade, topic } = JSON.parse(profile);
-      let filtered = mockQuestions;
-      if (topic) filtered = filtered.filter(q => q.topic === topic);
-      // Optionally filter by age/grade if questions have such metadata
-      setFilteredQuestions(filtered);
-    } else {
-      setFilteredQuestions(mockQuestions);
+    // All browser-dependent logic is inside useEffect
+    if (typeof window !== 'undefined') {
+      // Fetch personalization info (FERPA/COPPA: do not store PII in localStorage in production)
+      const profile = localStorage.getItem('PRIV-05_profile'); // RBAC: Only accessible to student/teacher
+      if (profile) {
+        setPersonalization(JSON.parse(profile));
+      }
+      // Fetch teacher-selected questions if available
+      const teacherQuestions = localStorage.getItem('PRIV-05_teacher_questions'); // RBAC: Only accessible to teacher
+      if (teacherQuestions) {
+        try {
+          const parsed = JSON.parse(teacherQuestions);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setFilteredQuestions(parsed);
+            return;
+          }
+        } catch {}
+      }
+      // Otherwise, filter mockQuestions by personalization
+      if (profile) {
+        const { age, grade, topic } = JSON.parse(profile);
+        let filtered = mockQuestions;
+        if (topic) filtered = filtered.filter(q => q.topic === topic);
+        // Optionally filter by age/grade if questions have such metadata
+        setFilteredQuestions(filtered);
+      } else {
+        setFilteredQuestions(mockQuestions);
+      }
     }
   }, []);
 
@@ -181,30 +185,34 @@ export default function AssessmentEntry() {
   }, [skippedAssessment])
 
   useEffect(() => {
-    const taken = localStorage.getItem('assessment_taken') === 'true';
-    setAssessmentTaken(taken);
-    const skipped = localStorage.getItem('assessment_skipped') === 'true';
-    setSkippedAssessment(skipped);
-    if (!taken && !skipped) setShowModal(true);
+    if (typeof window !== 'undefined') {
+      const taken = localStorage.getItem('assessment_taken') === 'true';
+      setAssessmentTaken(taken);
+      const skipped = localStorage.getItem('assessment_skipped') === 'true';
+      setSkippedAssessment(skipped);
+      if (!taken && !skipped) setShowModal(true);
 
-    const savedProgress = localStorage.getItem('assessment_progress');
-    if (savedProgress) {
-      const parsed = JSON.parse(savedProgress);
-      setCurrentIndex(parsed.currentIndex || 0);
-      setCorrectCount(parsed.correctCount || 0);
-      setSelectedOption(parsed.selectedOption ?? null);
-      setInAssessment(parsed.inAssessment || false);
+      const savedProgress = localStorage.getItem('assessment_progress');
+      if (savedProgress) {
+        const parsed = JSON.parse(savedProgress);
+        setCurrentIndex(parsed.currentIndex || 0);
+        setCorrectCount(parsed.correctCount || 0);
+        setSelectedOption(parsed.selectedOption ?? null);
+        setInAssessment(parsed.inAssessment || false);
+      }
+
+      console.log("Assessment skipped status on load:", skippedAssessment);
     }
-
-    console.log("Assessment skipped status on load:", skippedAssessment)
   }, []);
 
   useEffect(() => {
-    const saved = localStorage.getItem('assessment_settings');
-    if (saved) {
-      setSettings(JSON.parse(saved));
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('assessment_settings');
+      if (saved) {
+        setSettings(JSON.parse(saved));
+      }
+      setSettingsLoaded(true);
     }
-    setSettingsLoaded(true);
   }, []);
 
   useEffect(() => {
@@ -504,56 +512,16 @@ export default function AssessmentEntry() {
 
   const isTeacherOrAdmin = user && (user.user_type === 'teacher' || user.user_type === 'admin');
 
+  const AssignAssessmentMock = dynamic(() => import('./AssignAssessmentMock'), { ssr: false });
+  const StudentResultsMock = dynamic(() => import('./StudentResultsMock'), { ssr: false });
+
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+  if (!mounted) return null;
+
   return (
     <div className="w-full flex flex-col min-h-screen bg-white">
-      {/* Assessment start modal */}
-      {showModal && (
-        <div className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center">
-          <div className="relative w-[90%] max-w-lg bg-white rounded-lg shadow-lg">
-            <div className="flex justify-between items-center px-6 py-4 border-b border-gray-300">
-              <div className="flex items-center space-x-2">
-                <img src="/logo-icon.png" alt="MathGPT Logo" className="h-8 w-8" />
-                <span className="text-lg font-semibold text-gray-800">
-                  MathGPT Skill Assessment
-                </span>
-              </div>
-              <button
-                onClick={handleSkip}
-                className="text-gray-500 hover:text-gray-800 text-xl"
-                aria-label="Close"
-              >
-                ×
-              </button>
-            </div>
-            <div className="bg-gray-50 text-center px-6 py-4">
-              <h3 className="text-xl font-semibold text-gray-900 mb-3">
-                Want a personalized experience?
-              </h3>
-              <div className="text-4xl text-gray-700">➕ ➖ ✖️ ➗</div>
-            </div>
-            <div className="bg-white text-center px-6 py-6 rounded-b-lg">
-              <p className="text-[16px] text-gray-800 mb-6">
-                Take a <span className="font-medium">quick math assessment</span> to match content to your level.
-              </p>
-              <div className="flex justify-center space-x-4">
-                <button
-                  onClick={handleSkip}
-                  className="px-6 py-3 bg-gray-200 hover:bg-gray-300 rounded-full text-lg text-gray-800"
-                >
-                  Maybe Later
-                </button>
-                <button
-                  onClick={handleTakeNow}
-                  className="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-full text-lg text-white"
-                >
-                  Take Assessment
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
+    
       {settingsLoaded && isTeacherOrAdmin && (
         <div className="flex flex-1 flex-col items-center justify-center min-h-screen w-full">
           <div className="p-8 max-w-xl w-full bg-gray-100 shadow-xl rounded-xl flex flex-col items-center justify-center text-center my-12">
@@ -562,20 +530,19 @@ export default function AssessmentEntry() {
               onSubmit={e => {
                 e.preventDefault();
                 const timePerItemNum = Number(settings.timePerItem);
-                const stopRulePrecisionNum = Number(settings.stopRulePrecision);
                 if (settings.timePerItem === '' || isNaN(timePerItemNum) || timePerItemNum <= 0) {
                   setSettingsWarning('Please enter a valid time per item (must be a positive number).');
                   return;
                 }
-                if (settings.stopRulePrecision === '' || isNaN(stopRulePrecisionNum) || stopRulePrecisionNum < 0.5 || stopRulePrecisionNum > 0.99) {
-                  setSettingsWarning('Please enter a valid stop rule precision (between 0.5 and 0.99).');
+                if (!settings.numQuestions) {
+                  setSettingsWarning('Please select the number of questions.');
                   return;
                 }
                 setSettingsWarning('');
                 localStorage.setItem('assessment_settings', JSON.stringify({
                   ...settings,
                   timePerItem: timePerItemNum,
-                  stopRulePrecision: stopRulePrecisionNum,
+                  numQuestions: settings.numQuestions,
                 }));
                 alert('Settings saved!');
               }}
@@ -617,18 +584,23 @@ export default function AssessmentEntry() {
                 />
               </div>
               <div>
-                <label className="block font-medium">Stop Rule Precision:</label>
-                <input
-                  type="number"
-                  min={0.5}
-                  max={0.99}
-                  step={0.01}
-                  value={settings.stopRulePrecision}
-                  onChange={e => setSettings(s => ({ ...s, stopRulePrecision: e.target.value }))}
+                <label className="block font-medium">Number of Questions:</label>
+                <select
+                  value={settings.numQuestions || '15'}
+                  onChange={e => setSettings(s => ({ ...s, numQuestions: e.target.value }))}
                   className="border border-gray-300 bg-white rounded-lg shadow-sm px-2 py-1 w-48"
-                />
-                {settings.stopRulePrecision === '' && (
-                  <div className="text-red-600 text-sm mt-1">Please enter a value for stop rule precision.</div>
+                >
+                  <option value="5">5</option>
+                  <option value="10">10</option>
+                  <option value="15">15</option>
+                  <option value="20">20</option>
+                  <option value="30">30</option>
+                </select>
+                <div className="text-gray-600 text-xs mt-1">
+                  15 questions is recommended for most users.
+                </div>
+                {(!settings.numQuestions) && (
+                  <div className="text-red-600 text-sm mt-1">Please select the number of questions.</div>
                 )}
               </div>
               {settingsWarning && (
@@ -641,262 +613,327 @@ export default function AssessmentEntry() {
                 Save Settings
               </button>
             </form>
-          </div>
-        </div>
-      )}
-
-      {skippedAssessment && !inAssessment && !showSummary && !showModal && (
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="p-8 max-w-xl mx-auto text-center bg-white rounded-lg shadow-xl">
-            <h2 className="text-2xl font-bold mb-4 text-gray-800">Welcome to MathGPT</h2>
-            <p className="text-gray-700 mb-6">
-              You can take the skill assessment anytime to get a personalized experience.
-            </p>
-            <button
-              onClick={handleTakeNow}
-              className="px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white text-lg font-medium rounded-lg"
-            >
-              Take Assessment
-            </button>
-          </div>
-        </div>
-      )}
-
-      {showPauseModal && (
-        <div className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center">
-          <div className="bg-white rounded-lg shadow-xl text-center px-6 py-8 max-w-sm w-full">
-            <h2 className="text-2xl font-bold mb-4">Assessment Paused</h2>
-            <p className="text-gray-700 mb-6">Do you want to resume now?</p>
-            <div className="flex justify-center space-x-4">
-              <button onClick={handleResume} className="px-6 py-3 bg-blue-600 text-white rounded-full">Resume</button>
-              <button onClick={() => setShowPauseModal(false)} className="px-6 py-3 bg-gray-300 rounded-full text-gray-800">Cancel</button>
+            <div className="mt-4 text-gray-500 text-sm">
+              Questions are generated dynamically for each student based on these settings.
             </div>
+
+            {/* 分隔线 */}
+            <hr className="my-8 w-full border-gray-300" />
+
+            {/* 分配测验区域 */}
+            <AssignAssessmentMock />
+
+            {/* 分隔线 */}
+            <hr className="my-8 w-full border-gray-300" />
+
+            {/* 学生成绩区域 */}
+            <StudentResultsMock />
           </div>
         </div>
       )}
 
-      {/* Ongoing assessment */}
-      {inAssessment && (
-        <div className="min-h-screen flex flex-col justify-center items-center w-full">
-          <div className="w-full max-w-xl flex flex-col items-center">
-            <div className="w-full bg-gray-100 rounded-xl shadow text-center mb-6 py-3">
-              <div className="text-2xl text-black">Skill Assessment</div>
-            </div>
-            <div className="p-8 w-full bg-gray-100 shadow-xl rounded-lg text-center relative pb-4 min-h-[400px] flex flex-col justify-center">
-          <button
-            onClick={handlePause}
-            className="absolute top-4 left-4 text-gray-600 hover:text-gray-800"
-            title="Pause Assessment"
-          >
-            <Pause size={24} />
-          </button>
-          <h3 className="text-2xl font-medium mb-8 text-gray-800">
-                Question {currentIndex + 1} of {filteredQuestions.length}
-          </h3>
-              <p className="mb-6 font-medium text-xl text-gray-700">{filteredQuestions[currentIndex].text}</p>
-              {filteredQuestions[currentIndex].type === 'mcq' && filteredQuestions[currentIndex].options && (
-          <div className="space-y-4 mb-8">
-                  {filteredQuestions[currentIndex].options.map((opt, i) => (
-              <button
-                key={i}
-                disabled={locked}
-                      onClick={() => {
-                        setSelectedOption(i);
-                        setSelectedConfidence(null); // Reset confidence when changing answer
-                      }}
-                      className={`w-full text-left px-6 py-4 rounded-lg border-2 shadow-md transition-colors bg-white flex items-center ${
-                        selectedOption === i
-                          ? 'border-blue-500 bg-blue-50 text-blue-900 font-semibold'
-                          : 'border-gray-300 text-gray-600 hover:bg-gray-100'
-                }`}
-              >
-                      {/* No emoji for selected option */}
-                {String.fromCharCode(65 + i)}. {opt}
-              </button>
-            ))}
-          </div>
-              )}
-
-              {filteredQuestions[currentIndex].type === 'numeric' && (
-                <div className="mb-8">
-                  <input
-                    type="number"
-                    value={typeof selectedOption === 'number' ? selectedOption : ''}
-                    onChange={e => {
-                      setSelectedOption(Number(e.target.value));
-                      setSelectedConfidence(null); // Reset confidence when changing answer
-                    }}
-                    disabled={locked}
-                    className="w-full px-6 py-4 rounded-lg border border-gray-300 shadow-md bg-white"
-                    placeholder="Enter your answer"
-                  />
-                </div>
-              )}
-
-              {filteredQuestions[currentIndex].type === 'proof' && (
-                <div className="mb-8">
-                  <textarea
-                    value={typeof selectedOption === 'string' ? selectedOption : ''}
-                    onChange={e => {
-                      setSelectedOption(e.target.value);
-                      setSelectedConfidence(null); // Reset confidence when changing answer
-                    }}
-                    disabled={locked}
-                    className="w-full px-6 py-4 rounded-lg border border-gray-300 shadow-md bg-white"
-                    placeholder="Enter your proof step by step"
-                    rows={5}
-                  />
-                </div>
-              )}
-
-              {filteredQuestions[currentIndex].type === 'graph' && (
-                <div className="mb-8 bg-white rounded-lg p-4 border border-gray-300 shadow-md">
-                  <GraphingTool
-                    value={graphPoints}
-                    onChange={pts => { setGraphPoints(pts); setSelectedOption(pts); setSelectedConfidence(null); }}
-                    disabled={locked}
-                    func={filteredQuestions[currentIndex].text.includes('y = x^2') ? (x => x * x) : undefined}
-                    showAnswer={false}
-                  />
-                  <div className="mt-2 text-sm text-gray-500">Click on the grid to plot points for your answer.</div>
-                </div>
-              )}
-
-              {settings.hintAvailable && filteredQuestions[currentIndex].hint && (
-                <div className="mt-4 flex flex-col items-center">
+      {/* 学生 assessment 流程 */}
+      {!isTeacherOrAdmin && (
+        <>
+          {showModal && (
+            <div className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center">
+              <div className="relative w-[90%] max-w-lg bg-white rounded-lg shadow-lg">
+                <div className="flex justify-between items-center px-6 py-4 border-b border-gray-300">
+                  <div className="flex items-center space-x-2">
+                    <img src="/logo-icon.png" alt="MathGPT Logo" className="h-8 w-8" />
+                    <span className="text-lg font-semibold text-gray-800">
+                      MathGPT Skill Assessment
+                    </span>
+                  </div>
                   <button
-                    onClick={() => setShowHint(true)}
-                    className={`flex items-center gap-2 px-5 py-2 rounded-full bg-yellow-400 text-white font-semibold shadow-lg transition-all duration-150 hover:bg-yellow-500 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-yellow-300 ${showHint ? 'opacity-60 cursor-not-allowed' : ''}`}
-                    disabled={showHint}
-                    style={{ fontSize: '1.1rem' }}
+                    onClick={handleSkip}
+                    className="text-gray-500 hover:text-gray-800 text-xl"
+                    aria-label="Close"
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24"><path fill="#fff" d="M12 2a7 7 0 0 0-7 7c0 2.386 1.32 4.434 3.25 5.5V17a2 2 0 0 0 2 2h1.5a2 2 0 0 0 2-2v-2.5C17.68 13.434 19 11.386 19 9a7 7 0 0 0-7-7Zm1.5 15a.5.5 0 0 1-.5.5H11a.5.5 0 0 1-.5-.5v-1h3v1Zm-1.5-3c-2.757 0-5-2.243-5-5a5 5 0 1 1 10 0c0 2.757-2.243 5-5 5Z"/></svg>
-                    Show Hint
+                    ×
                   </button>
-                  {showHint && (
-                    <div className="mt-4 w-full max-w-md mx-auto flex items-start gap-3 bg-yellow-50 border-l-4 border-yellow-400 shadow-md rounded-lg p-4 animate-fade-in">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="none" viewBox="0 0 24 24"><path fill="#facc15" d="M12 2a7 7 0 0 0-7 7c0 2.386 1.32 4.434 3.25 5.5V17a2 2 0 0 0 2 2h1.5a2 2 0 0 0 2-2v-2.5C17.68 13.434 19 11.386 19 9a7 7 0 0 0-7-7Zm1.5 15a.5.5 0 0 1-.5.5H11a.5.5 0 0 1-.5-.5v-1h3v1Zm-1.5-3c-2.757 0-5-2.243-5-5a5 5 0 1 1 10 0c0 2.757-2.243 5-5 5Z"/></svg>
-                      <span className="text-yellow-800 text-base font-medium" style={{lineHeight: '1.6'}}>{filteredQuestions[currentIndex].hint}</span>
+                </div>
+                <div className="bg-gray-50 text-center px-6 py-4">
+                  <h3 className="text-xl font-semibold text-gray-900 mb-3">
+                    Want a personalized experience?
+                  </h3>
+                  <div className="text-4xl text-gray-700">➕ ➖ ✖️ ➗</div>
+                </div>
+                <div className="bg-white text-center px-6 py-6 rounded-b-lg">
+                  <p className="text-[16px] text-gray-800 mb-6">
+                    Take a <span className="font-medium">quick math assessment</span> to match content to your level.
+                  </p>
+                  <div className="flex justify-center space-x-4">
+                    <button
+                      onClick={handleSkip}
+                      className="px-6 py-3 bg-gray-200 hover:bg-gray-300 rounded-full text-lg text-gray-800"
+                    >
+                      Maybe Later
+                    </button>
+                    <button
+                      onClick={handleTakeNow}
+                      className="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-full text-lg text-white"
+                    >
+                      Take Assessment
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {skippedAssessment && !inAssessment && !showSummary && !showModal && (
+            <div className="min-h-screen flex items-center justify-center">
+              <div className="p-8 max-w-xl mx-auto text-center bg-white rounded-lg shadow-xl">
+                <h2 className="text-2xl font-bold mb-4 text-gray-800">Welcome to MathGPT</h2>
+                <p className="text-gray-700 mb-6">
+                  You can take the skill assessment anytime to get a personalized experience.
+                </p>
+                <button
+                  onClick={handleTakeNow}
+                  className="px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white text-lg font-medium rounded-lg"
+                >
+                  Take Assessment
+                </button>
+              </div>
+            </div>
+          )}
+
+          {inAssessment && (
+            <div className="min-h-screen flex flex-col justify-center items-center w-full">
+              <div className="w-full max-w-xl flex flex-col items-center">
+                <div className="w-full bg-gray-100 rounded-xl shadow text-center mb-6 py-3">
+                  <div className="text-2xl text-black">Skill Assessment</div>
+                </div>
+                <div className="p-8 w-full bg-gray-100 shadow-xl rounded-lg text-center relative pb-4 min-h-[400px] flex flex-col justify-center">
+                  <button
+                    onClick={handlePause}
+                    className="absolute top-4 left-4 text-gray-600 hover:text-gray-800"
+                    title="Pause Assessment"
+                  >
+                    <Pause size={24} />
+                  </button>
+                  <h3 className="text-2xl font-medium mb-8 text-gray-800">
+                    Question {currentIndex + 1} of {filteredQuestions.length}
+                  </h3>
+                  <p className="mb-6 font-medium text-xl text-gray-700">{filteredQuestions[currentIndex].text}</p>
+                  {filteredQuestions[currentIndex].type === 'mcq' && filteredQuestions[currentIndex].options && (
+                    <div className="space-y-4 mb-8">
+                      {filteredQuestions[currentIndex].options.map((opt, i) => (
+                        <button
+                          key={i}
+                          disabled={locked}
+                          onClick={() => {
+                            setSelectedOption(i);
+                            setSelectedConfidence(null); // Reset confidence when changing answer
+                          }}
+                          className={`w-full text-left px-6 py-4 rounded-lg border-2 shadow-md transition-colors bg-white flex items-center ${
+                            selectedOption === i
+                              ? 'border-blue-500 bg-blue-50 text-blue-900 font-semibold'
+                              : 'border-gray-300 text-gray-600 hover:bg-gray-100'
+                          }`}
+                        >
+                          {/* No emoji for selected option */}
+                          {String.fromCharCode(65 + i)}. {opt}
+                        </button>
+                      ))}
                     </div>
                   )}
-                </div>
-              )}
 
-              {/* Show confidence buttons after an answer is selected, but before submit */}
-              {selectedOption !== null && !locked && (
-                <div className="mt-6 flex justify-center space-x-6">
-                  <button
-                    onClick={() => setSelectedConfidence('sure')}
-                    className={`w-32 px-0 py-2 rounded-full text-base font-semibold shadow transition-all duration-150 border-2 focus:outline-none focus:ring-2 focus:ring-blue-400 ${
-                      selectedConfidence === 'sure'
-                        ? 'bg-green-600 text-white border-green-700 scale-105'
-                        : 'bg-white text-green-700 border-green-500 hover:bg-green-50 hover:scale-105'
-                    }`}
-                    disabled={selectedConfidence === 'sure'}
-                  >
-                    <span className="inline-block align-middle mr-1">✔️</span> Sure
-                  </button>
-                  <button
-                    onClick={() => setSelectedConfidence('unsure')}
-                    className={`w-32 px-0 py-2 rounded-full text-base font-semibold shadow transition-all duration-150 border-2 focus:outline-none focus:ring-2 focus:ring-yellow-400 ${
-                      selectedConfidence === 'unsure'
-                        ? 'bg-yellow-500 text-white border-yellow-600 scale-105'
-                        : 'bg-white text-yellow-700 border-yellow-400 hover:bg-yellow-50 hover:scale-105'
-                    }`}
-                    disabled={selectedConfidence === 'unsure'}
-                  >
-                    <span className="inline-block align-middle mr-1">❓</span> Not Sure
-                  </button>
-                </div>
-              )}
+                  {filteredQuestions[currentIndex].type === 'numeric' && (
+                    <div className="mb-8">
+                      <input
+                        type="number"
+                        value={typeof selectedOption === 'number' ? selectedOption : ''}
+                        onChange={e => {
+                          setSelectedOption(Number(e.target.value));
+                          setSelectedConfidence(null); // Reset confidence when changing answer
+                        }}
+                        disabled={locked}
+                        className="w-full px-6 py-4 rounded-lg border border-gray-300 shadow-md bg-white"
+                        placeholder="Enter your answer"
+                      />
+                    </div>
+                  )}
 
-              {/* Show Submit button only if not locked and no feedback yet */}
-              {(!locked && feedback === '') && (
-                <div className="flex justify-center w-full">
-          <button
-            onClick={handleSubmit}
-                    disabled={selectedOption === null || selectedConfidence === null || locked}
-                    className="mt-8 w-72 py-3 rounded-full text-lg font-semibold shadow transition-all duration-150 border-2 bg-blue-600 text-white border-blue-700 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:opacity-50"
-          >
-                    Submit
-          </button>
+                  {filteredQuestions[currentIndex].type === 'proof' && (
+                    <div className="mb-8">
+                      <textarea
+                        value={typeof selectedOption === 'string' ? selectedOption : ''}
+                        onChange={e => {
+                          setSelectedOption(e.target.value);
+                          setSelectedConfidence(null); // Reset confidence when changing answer
+                        }}
+                        disabled={locked}
+                        className="w-full px-6 py-4 rounded-lg border border-gray-300 shadow-md bg-white"
+                        placeholder="Enter your proof step by step"
+                        rows={5}
+                      />
+                    </div>
+                  )}
+
+                  {filteredQuestions[currentIndex].type === 'graph' && (
+                    <div className="mb-8 bg-white rounded-lg p-4 border border-gray-300 shadow-md">
+                      <GraphingTool
+                        value={graphPoints}
+                        onChange={pts => { setGraphPoints(pts); setSelectedOption(pts); setSelectedConfidence(null); }}
+                        disabled={locked}
+                        func={filteredQuestions[currentIndex].text.includes('y = x^2') ? (x => x * x) : undefined}
+                        showAnswer={false}
+                      />
+                      <div className="mt-2 text-sm text-gray-500">Click on the grid to plot points for your answer.</div>
+                    </div>
+                  )}
+
+                  {settings.hintAvailable && filteredQuestions[currentIndex].hint && (
+                    <div className="mt-4 flex flex-col items-center">
+                      <button
+                        onClick={() => setShowHint(true)}
+                        className={`flex items-center gap-2 px-5 py-2 rounded-full bg-yellow-400 text-white font-semibold shadow-lg transition-all duration-150 hover:bg-yellow-500 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-yellow-300 ${showHint ? 'opacity-60 cursor-not-allowed' : ''}`}
+                        disabled={showHint}
+                        style={{ fontSize: '1.1rem' }}
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24"><path fill="#fff" d="M12 2a7 7 0 0 0-7 7c0 2.386 1.32 4.434 3.25 5.5V17a2 2 0 0 0 2 2h1.5a2 2 0 0 0 2-2v-2.5C17.68 13.434 19 11.386 19 9a7 7 0 0 0-7-7Zm1.5 15a.5.5 0 0 1-.5.5H11a.5.5 0 0 1-.5-.5v-1h3v1Zm-1.5-3c-2.757 0-5-2.243-5-5a5 5 0 1 1 10 0c0 2.757-2.243 5-5 5Z"/></svg>
+                        Show Hint
+                      </button>
+                      {showHint && (
+                        <div className="mt-4 w-full max-w-md mx-auto flex items-start gap-3 bg-yellow-50 border-l-4 border-yellow-400 shadow-md rounded-lg p-4 animate-fade-in">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="none" viewBox="0 0 24 24"><path fill="#facc15" d="M12 2a7 7 0 0 0-7 7c0 2.386 1.32 4.434 3.25 5.5V17a2 2 0 0 0 2 2h1.5a2 2 0 0 0 2-2v-2.5C17.68 13.434 19 11.386 19 9a7 7 0 0 0-7-7Zm1.5 15a.5.5 0 0 1-.5.5H11a.5.5 0 0 1-.5-.5v-1h3v1Zm-1.5-3c-2.757 0-5-2.243-5-5a5 5 0 1 1 10 0c0 2.757-2.243 5-5 5Z"/></svg>
+                          <span className="text-yellow-800 text-base font-medium" style={{lineHeight: '1.6'}}>{filteredQuestions[currentIndex].hint}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Show confidence buttons after an answer is selected, but before submit */}
+                  {selectedOption !== null && !locked && (
+                    <div className="mt-6 flex justify-center space-x-6">
+                      <button
+                        onClick={() => setSelectedConfidence('sure')}
+                        className={`w-32 px-0 py-2 rounded-full text-base font-semibold shadow transition-all duration-150 border-2 focus:outline-none focus:ring-2 focus:ring-blue-400 ${
+                          selectedConfidence === 'sure'
+                            ? 'bg-green-600 text-white border-green-700 scale-105'
+                            : 'bg-white text-green-700 border-green-500 hover:bg-green-50 hover:scale-105'
+                        }`}
+                        disabled={selectedConfidence === 'sure'}
+                      >
+                        <span className="inline-block align-middle mr-1">✔️</span> Sure
+                      </button>
+                      <button
+                        onClick={() => setSelectedConfidence('unsure')}
+                        className={`w-32 px-0 py-2 rounded-full text-base font-semibold shadow transition-all duration-150 border-2 focus:outline-none focus:ring-2 focus:ring-yellow-400 ${
+                          selectedConfidence === 'unsure'
+                            ? 'bg-yellow-500 text-white border-yellow-600 scale-105'
+                            : 'bg-white text-yellow-700 border-yellow-400 hover:bg-yellow-50 hover:scale-105'
+                        }`}
+                        disabled={selectedConfidence === 'unsure'}
+                      >
+                        <span className="inline-block align-middle mr-1">❓</span> Not Sure
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Show Submit button only if not locked and no feedback yet */}
+                  {(!locked && feedback === '') && (
+                    <div className="flex justify-center w-full">
+                      <button
+                        onClick={handleSubmit}
+                        disabled={selectedOption === null || selectedConfidence === null || locked}
+                        className="mt-8 w-72 py-3 rounded-full text-lg font-semibold shadow transition-all duration-150 border-2 bg-blue-600 text-white border-blue-700 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:opacity-50"
+                      >
+                        Submit
+                      </button>
+                    </div>
+                  )}
+                  {/* Show feedback in place of the button after submit */}
+                  {locked && feedback && (
+                    <div className={`mt-8 font-medium text-lg ${
+                      feedback === 'Correct!'
+                        ? 'text-green-600'
+                        : 'text-red-600'
+                    }`}>
+                      {feedback}
+                    </div>
+                  )}
+                  <div className="absolute top-4 right-4 text-lg font-semibold text-gray-700">
+                    Time left: {timer}s
+                  </div>
                 </div>
-              )}
-              {/* Show feedback in place of the button after submit */}
-              {locked && feedback && (
-                <div className={`mt-8 font-medium text-lg ${
-                  feedback === 'Correct!'
-                    ? 'text-green-600'
-                    : 'text-red-600'
-                }`}>
-                  {feedback}
-                </div>
-              )}
-              <div className="absolute top-4 right-4 text-lg font-semibold text-gray-700">
-                Time left: {timer}s
               </div>
             </div>
-          </div>
-        </div>
-      )}
+          )}
 
-      {showSummary && !showMicroLecture && (
-        <div className="min-h-screen flex flex-col justify-center items-center">
-        
-          <div className="bg-gray-100 rounded-lg shadow-md p-8 flex flex-col items-center">
-            
-            <h2 className="text-2xl font-bold mb-4 text-gray-800 text-center">Strengths & Gaps Summary</h2>
-            <p className="text-gray-700 mb-6 text-center">
-              Here are the topics where you performed best (Strengths) and those that need more practice (Gaps):
-            </p>
-            <div className="mb-6">
-              <h3 className="text-lg font-semibold text-green-700 mb-2">Strengths (≥ 70%)</h3>
-              <ul>
-                {Object.entries(performanceByTopic).filter(([_, {correct, total}]) => total > 0 && (correct / total) * 100 >= 70).map(([topic, {correct, total}]) => (
-                  <li key={topic} className="text-green-700">{topic}: {(correct / total * 100).toFixed(0)}%</li>
-                ))}
-                {Object.entries(performanceByTopic).filter(([_, {correct, total}]) => total > 0 && (correct / total) * 100 >= 70).length === 0 && (
-                  <li className="text-gray-500">No strengths identified yet.</li>
-                )}
-              </ul>
-            </div>
-            <div className="mb-6">
-              <h3 className="text-lg font-semibold text-red-700 mb-2">Gaps (&lt; 40%)</h3>
-              <ul>
-                {Object.entries(performanceByTopic).filter(([_, {correct, total}]) => total > 0 && (correct / total) * 100 < 40).map(([topic, {correct, total}]) => (
-                  <li key={topic} className="text-red-700">{topic}: {(correct / total * 100).toFixed(0)}%</li>
-                ))}
-                {Object.entries(performanceByTopic).filter(([_, {correct, total}]) => total > 0 && (correct / total) * 100 < 40).length === 0 && (
-                  <li className="text-gray-500">No major gaps identified.</li>
-                )}
-              </ul>
-            </div>
-            <div className="flex flex-nowrap justify-center gap-6 mt-4 w-full overflow-x-auto">
-              <button onClick={() => setShowMicroLecture(true)} className="px-8 py-4 bg-blue-600 text-white rounded-full text-lg font-medium">Continue</button>
-              <button onClick={handleRetake} className="px-8 py-4 bg-blue-600 text-white rounded-full text-lg font-medium">Retake Assessment</button>
-              <button onClick={() => router.push('/welcome')} className="px-8 py-4 bg-gray-200 hover:bg-gray-300 rounded-full text-lg font-medium">Return Home</button>
-            </div>
-          </div>
-        </div>
-      )}
-      {showSummary && showMicroLecture && (
-        <div className="min-h-screen flex flex-col justify-center items-center">
-          <div className="p-8 max-w-xl w-full bg-gray-100 shadow-xl rounded-lg text-center relative flex flex-col items-center">
-            <h2 className="text-xl font-bold mb-4 text-gray-800">Micro-Lecture</h2>
-            <p className="mb-6 text-gray-700">{microLectureAI ?? microLecture}</p>
-            <p className="mb-6 text-gray-900 font-semibold">Do you have a question?</p>
-            <div className="flex justify-center gap-6 w-full">
-              <button onClick={() => setShowGoNext(true)} className="px-6 py-3 bg-gray-200 hover:bg-gray-300 rounded-full text-lg text-gray-800">No</button>
-              <button onClick={async () => { await handleGenerateMicroLecture(); setShowGoNext(true); }} className="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-full text-lg text-white">Yes</button>
-            </div>
-            {showGoNext && (
-              <div className="flex flex-col items-center mt-6 gap-4 w-full">
-              
-                <button onClick={() => router.push('/lecture2')} className="px-8 py-4 bg-green-600 text-white rounded-full text-lg font-medium">Go to Lecture Page</button>
+          {showSummary && !showMicroLecture && (
+            <div className="min-h-screen flex flex-col justify-center items-center">
+              <div className="bg-gray-100 rounded-lg shadow-md p-8 flex flex-col items-center">
+                <h2 className="text-2xl font-bold mb-4 text-gray-800 text-center">Strengths & Gaps Summary</h2>
+                <p className="text-gray-700 mb-6 text-center">
+                  Here are the topics where you performed best (Strengths) and those that need more practice (Gaps):
+                </p>
+                <div className="mb-6">
+                  <h3 className="text-lg font-semibold text-green-700 mb-2">Strengths (≥ 70%)</h3>
+                  <ul>
+                    {Object.entries(performanceByTopic).filter(([_, {correct, total}]) => total > 0 && (correct / total) * 100 >= 70).map(([topic, {correct, total}]) => (
+                      <li key={topic} className="text-green-700">{topic}: {(correct / total * 100).toFixed(0)}%</li>
+                    ))}
+                    {Object.entries(performanceByTopic).filter(([_, {correct, total}]) => total > 0 && (correct / total) * 100 >= 70).length === 0 && (
+                      <li className="text-gray-500">No strengths identified yet.</li>
+                    )}
+                  </ul>
+                </div>
+                <div className="mb-6">
+                  <h3 className="text-lg font-semibold text-red-700 mb-2">Gaps (&lt; 40%)</h3>
+                  <ul>
+                    {Object.entries(performanceByTopic).filter(([_, {correct, total}]) => total > 0 && (correct / total) * 100 < 40).map(([topic, {correct, total}]) => (
+                      <li key={topic} className="text-red-700">{topic}: {(correct / total * 100).toFixed(0)}%</li>
+                    ))}
+                    {Object.entries(performanceByTopic).filter(([_, {correct, total}]) => total > 0 && (correct / total) * 100 < 40).length === 0 && (
+                      <li className="text-gray-500">No major gaps identified.</li>
+                    )}
+                  </ul>
+                </div>
+                <div className="flex flex-nowrap justify-center gap-6 mt-4 w-full overflow-x-auto">
+                  <button onClick={() => setShowMicroLecture(true)} className="px-8 py-4 bg-blue-600 text-white rounded-full text-lg font-medium">Continue</button>
+                  <button onClick={handleRetake} className="px-8 py-4 bg-blue-600 text-white rounded-full text-lg font-medium">Retake Assessment</button>
+                  <button onClick={() => router.push('/welcome')} className="px-8 py-4 bg-gray-200 hover:bg-gray-300 rounded-full text-lg font-medium">Return Home</button>
+                </div>
               </div>
-            )}
-          </div>
-        </div>
+            </div>
+          )}
+
+          {showSummary && showMicroLecture && (
+            <div className="min-h-screen flex flex-col justify-center items-center">
+              <div className="p-8 max-w-xl w-full bg-gray-100 shadow-xl rounded-lg text-center relative flex flex-col items-center">
+                <h2 className="text-xl font-bold mb-4 text-gray-800">Micro-Lecture</h2>
+                <p className="mb-6 text-gray-700">{microLectureAI ?? microLecture}</p>
+                <p className="mb-6 text-gray-900 font-semibold">Do you have a question?</p>
+                <div className="flex justify-center gap-6 w-full">
+                  <button onClick={() => setShowGoNext(true)} className="px-6 py-3 bg-gray-200 hover:bg-gray-300 rounded-full text-lg text-gray-800">No</button>
+                  <button onClick={async () => { await handleGenerateMicroLecture(); setShowGoNext(true); }} className="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-full text-lg text-white">Yes</button>
+                </div>
+                {showGoNext && (
+                  <div className="flex flex-col items-center mt-6 gap-4 w-full">
+                  
+                    <button onClick={() => router.push('/lecture2')} className="px-8 py-4 bg-green-600 text-white rounded-full text-lg font-medium">Go to Lecture Page</button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {showPauseModal && (
+            <div className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center">
+              <div className="bg-white rounded-lg shadow-xl text-center px-6 py-8 max-w-sm w-full">
+                <h2 className="text-2xl font-bold mb-4">Assessment Paused</h2>
+                <p className="text-gray-700 mb-6">Do you want to resume now?</p>
+                <div className="flex justify-center space-x-4">
+                  <button onClick={handleResume} className="px-6 py-3 bg-blue-600 text-white rounded-full">Resume</button>
+                  <button onClick={() => setShowPauseModal(false)} className="px-6 py-3 bg-gray-300 rounded-full text-gray-800">Cancel</button>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   )

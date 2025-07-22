@@ -53,8 +53,9 @@ export default function LoginPage() {
       setLoading(false)
     }
     if (result.status == true){
+      console.log('login result', result);
       await login({
-        id: result.user_id,
+        id: result.user_id || 0, // 确保有 id 字段
         username: username,
         user_type: result.user_type, // store user_type for role-based UI
       });
