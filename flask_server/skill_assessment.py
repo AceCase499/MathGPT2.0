@@ -126,11 +126,6 @@ Question: {question}\nStudent's Answer: {answer}
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# This route allows teachers to save their configuration preferences
-@assessment_bp.route('/skill_assessment/teacher_config', methods=['POST'])
-def teacher_config():
-    config = request.json  # Recordable configurations, such as time_limit, hint_on, termination_threshold
-    return jsonify({"status": "saved", "config": config})
 
 # This route provides the current privacy settings for the assessment system
 @assessment_bp.route('/skill_assessment/privacy_settings', methods=['GET'])
