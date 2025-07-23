@@ -21,6 +21,7 @@ from datetime import datetime
 from dotenv import load_dotenv
 from lecture import lecture_bp
 from problem import problem_bp
+from skill_assessment import assessment_bp
 import os
 from database import User, Student, Tutor, User_Login, Lectures, LectureChat
 
@@ -31,6 +32,7 @@ engine = create_engine(database_url)
 app = Flask(__name__)
 app.register_blueprint(lecture_bp)
 app.register_blueprint(problem_bp)
+app.register_blueprint(assessment_bp)
 CORS(app)
 
 # Homepage
