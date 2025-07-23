@@ -1,7 +1,7 @@
 from flask import request, jsonify, Blueprint
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
-from main_database_file import engine, Student, Problem_Sessions, User_Login
+from database import engine, Student, Problem_Sessions, User_Login
 import random
 import bcrypt
 import openai
@@ -49,22 +49,6 @@ def difficulty_to_b(difficulty):
         return 1.0
     return 0.0
 
-# This route generates diagnostic test questions for a given topic and grade level
-@assessment_bp.route('/skill_assessment/diagnostic_test', methods=['POST'])
-def diagnostic_test():
-    topic = request.json.get('topic')
-    grade = request.json.get('grade', 'K-12')
-    prompt = f"""
-You are a math expert. Generate 3 questions per subtopic under the topic \"{topic}\" for grade level {grade}. 
-Each sub-subtopic should include one easy, one medium, and one hard question.
-Return the result as a JSON object structured like: 
-{{ "Subtopic1 > Subsub1": [{{"difficulty": "easy", "question": "..."}}, ...], ... }}
-"""
-    try:
-        result = ask_gpt(prompt, max_tokens=1000)
-        return result
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
 
 # This route selects a random question from the diagnostic set
 @assessment_bp.route('/skill_assessment/pick_problem', methods=['POST'])
@@ -226,7 +210,7 @@ def rate_diagnostic():
         avg = sum(all_thetas) / len(all_thetas)
         spread = max(all_thetas) - min(all_thetas)
         if spread * 50 <= confidence_band:
-    return end_assessment("Confidence band threshold reached.")
+            return end_assessment("Confidence band threshold reached.")
 
     total_count = sum(v["count"] for v in topic_stats.values())
     if total_count >= max_questions:
