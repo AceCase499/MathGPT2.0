@@ -11,7 +11,7 @@ import json
 from dotenv import load_dotenv
 
 load_dotenv()
-client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+client = OpenAI(api_key=os.environ["GPT_API"])
 
 assessment_bp = Blueprint('assessment', __name__)
 
