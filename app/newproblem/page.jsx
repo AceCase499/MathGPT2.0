@@ -14,8 +14,11 @@
 
     useEffect(() => {
       if (!user) {
-        router.replace('/');
+        //router.replace('/');
+      } else {
+        loadLectureList()
       }
+      loadLectureList()
     }, [user, router]);
 
     const BASE_URL = "https://mathgptdevs25.pythonanywhere.com";
@@ -31,6 +34,7 @@
     const [explanation, setExplanation] = useState('');
     const [submitted, setSubmitted] = useState(false);
     const [showAnswerModal, setShowAnswerModal] = useState(false);
+    const [LectureArchive, setLectureArchive] = useState([])
 
     const [loading, setLoading] = useState(false);
     const [answering, setAnswering] = useState(false);
@@ -103,6 +107,19 @@
   ],
 };
 
+    async function loadLectureList(){
+    const form = new FormData();
+    Object.entries({ student_id: user?.id }).forEach(([key, value]) => {
+      form.append(key, value);
+    });
+
+    const response = await fetch('https://mathgptdevs25.pythonanywhere.com/mathgpt/lectures', {
+      method: 'POST',
+      body: form
+    });
+    const data = await response.json();    
+    setLectureArchive(data)
+  }
 
 
     const navBtnStyle = {
@@ -437,10 +454,10 @@
             {quizType === 'lecture' && (
               <>
                 <label><strong>Lecture Session:</strong></label>
-                <select value={lectureSessionId} onChange={(e) => setLectureSessionId(e.target.value)} style={inputStyle}>
-                  <option value="1">Lecture 1</option>
-                  <option value="2">Lecture 2</option>
-                  <option value="3">Lecture 3</option>
+                <select value={lectureSessionId} onChange={(e) => setLectureSessionId(e.target.id)} style={inputStyle}>
+                  {LectureArchive.map((lec, index) => (
+                    <option id={lec.lecture_id.toString()} value={[lec.topic, lec.subtopic]}>{lec.title}</option>
+                  ))}
                 </select>
               </>
             )}

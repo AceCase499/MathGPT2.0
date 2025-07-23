@@ -19,7 +19,6 @@ const HomePage = () => {
 
   const handleLogout = () => {
     logout();
-    alert("Log out successful");
     router.push("/");
   };
 

@@ -5,6 +5,13 @@
   --foreground: #171717;
 }
 
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #ffffff;/* default background color */
@@ -64,11 +71,9 @@ body {
   }
 
    
-  .inputBar { /*for chat page*/
+  .inputBar {
     width: 60%;
   }
-
-
 
   @keyframes fadeInAnimation {
     0% {
@@ -79,11 +84,3 @@ body {
         opacity: 1;
     }
   }
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: none; }
-}
-.animate-fade-in {
-  animation: fadeIn 0.5s;
-}

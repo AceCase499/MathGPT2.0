@@ -43,6 +43,12 @@ export default function SignupPage() {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
+
+    if (formData.password.length < 6) {
+      alert('Password must be at least 6 characters long.');
+      return;
+    }
+
     try {
     const form = new FormData();
     Object.entries(formData).forEach(([key, value]) => {
@@ -210,10 +216,6 @@ export default function SignupPage() {
             <input name="teacher_id" value={formData.teacher_id} onChange={handleChange} type="number" placeholder="Teacher ID" className="w-full px-3 py-2 border border-gray-300 rounded-md" />
             <input name="tutor_id" value={formData.tutor_id} onChange={handleChange} type="number" placeholder="Tutor ID" className="w-full px-3 py-2 border border-gray-300 rounded-md" />
             <input name="grade" value={formData.grade} onChange={handleChange} type="text" placeholder="Grade" className="w-full px-3 py-2 border border-gray-300 rounded-md" />
-            <input name="stored_chats" value={formData.stored_chats} onChange={handleChange} type="text" placeholder="Stored Chats" className="w-full px-3 py-2 border border-gray-300 rounded-md" />
-            <input name="staring_assessment" value={formData.staring_assessment} onChange={handleChange} type="number" placeholder="Starting Assessment" className="w-full px-3 py-2 border border-gray-300 rounded-md" />
-            <input name="current_subject" value={formData.current_subject} onChange={handleChange} type="text" placeholder="Current Subject" className="w-full px-3 py-2 border border-gray-300 rounded-md" />
-            <input name="progress_percentage" value={formData.progress_percentage} onChange={handleChange} type="number" step="0.01" placeholder="Progress (%)" className="w-full px-3 py-2 border border-gray-300 rounded-md" />
           </div>
         )}
 
