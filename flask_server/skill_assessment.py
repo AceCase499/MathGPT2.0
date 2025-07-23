@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from database import engine, Student, Problem_Sessions, User_Login
 import random
 import bcrypt
-import openai
+from openai import OpenAI
 import os
 import math
 import json
@@ -16,13 +16,13 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 assessment_bp = Blueprint('assessment', __name__)
 
 def ask_gpt(prompt, model="gpt-4o", max_tokens=700, temperature=0.7):
-    response = openai.ChatCompletion.create(
+    response = client.chat.completions.create(
         model=model,
         messages=[{"role": "user", "content": prompt}],
         temperature=temperature,
         max_tokens=max_tokens
     )
-    return response.choices[0].message["content"].strip()
+    return response.choices[0].message.content.strip()
 
 # Diagnostic early termination logic, can be expanded (such as database marking)
 def end_assessment(reason="terminated"):
