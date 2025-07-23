@@ -1,7 +1,7 @@
 from flask import request, jsonify, Blueprint
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
-from database import engine, Student, Problem_Sessions, User_Login
+from database import engine, Student, Problem_Sessions, User_Login, User
 import random
 import bcrypt
 from openai import OpenAI
@@ -11,7 +11,7 @@ import json
 from dotenv import load_dotenv
 
 load_dotenv()
-openai.api_key = os.getenv("OPENAI_API_KEY")
+client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
 assessment_bp = Blueprint('assessment', __name__)
 
@@ -218,10 +218,15 @@ def rate_diagnostic():
 
     try:
         with Session(engine) as session:
-            student = session.get(Student, student_id)
-            if student:
-                student.progress_percentage = json.dumps(mastery_report)
-                session.commit()
+            user = session.get(User, student_id)
+            if not user or not isinstance(user, Student):
+                return jsonify({"error": "User is not a student or not found."}), 400
+
+            # Use it safely as a "Student"
+            student = user
+            student.progress_percentage = json.dumps(mastery_report)
+            session.commit()
+        
         return jsonify(mastery_report)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -276,5 +281,3 @@ Return the result as a JSON object:
         return result
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
-
