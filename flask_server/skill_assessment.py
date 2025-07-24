@@ -1,7 +1,7 @@
 from flask import request, jsonify, Blueprint
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
-from database import engine, Student, Problem_Sessions, User_Login, User
+from database import engine, Student, User_Login, User, DiagnosticProblem
 import random
 import bcrypt
 from openai import OpenAI
@@ -11,11 +11,11 @@ import json
 from dotenv import load_dotenv
 
 load_dotenv()
-client = OpenAI(api_key=os.environ["GPT_API"])
+client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
 assessment_bp = Blueprint('assessment', __name__)
 
-def ask_gpt(prompt, model="gpt-4o", max_tokens=700, temperature=0.7):
+def ask_gpt(prompt, model="gpt-4o", max_tokens=2000, temperature=0.7):
     response = client.chat.completions.create(
         model=model,
         messages=[{"role": "user", "content": prompt}],
@@ -53,26 +53,92 @@ def difficulty_to_b(difficulty):
 # This route selects a random question from the diagnostic set
 @assessment_bp.route('/skill_assessment/pick_problem', methods=['POST'])
 def pick_problem():
-    diagnostic = request.json.get('diagnostic')
-    confidence = request.json.get('confidence', None)  # Optional: To be used for regulating difficulty in the future
-    subtopic = random.choice(list(diagnostic.keys()))
-    question = random.choice(diagnostic[subtopic])
-    return jsonify({"subtopic": subtopic, "problem": question})
+    student_id = request.json.get('student_id')
+    with Session(engine) as session:
+        next_question = session.query(DiagnosticProblem)\
+            .filter_by(student_id=student_id, is_served=False)\
+            .order_by(DiagnosticProblem.id)\
+            .first()
+
+        if not next_question:
+            return jsonify({"status": "completed"}), 200
+
+        next_question.is_served = True
+        session.commit()
+
+        # Construct response based on type
+        problem_payload = {
+            "question": next_question.question,
+            "type": next_question.type,
+            "difficulty": next_question.difficulty,
+        }
+
+        if next_question.type == "mcq":
+            problem_payload["options"] = json.loads(next_question.options) if next_question.options else None
+        elif next_question.type in ["proof", "graph"]:
+            # frontend can render input differently based on type
+            problem_payload["options"] = None  # can be omitted if preferred
+
+        return jsonify({
+            "subtopic": next_question.subtopic,
+            "problem": problem_payload
+        })
+
 
 # This route evaluates a student's answer using GPT and returns 'Correct' or 'Incorrect'
 @assessment_bp.route('/skill_assessment/submit_solution', methods=['POST'])
 def submit_solution():
-    question = request.json.get("question")
+    problem_id = request.json.get("problem_id")
     student_answer = request.json.get("answer")
-    prompt = f"""
-You are an AI grader. Determine whether the student's answer is correct.
-Question: {question}\nStudent's Answer: {student_answer}\nRespond with only 'Correct' or 'Incorrect'.
-"""
+
+    with Session(engine) as session:
+        problem = session.get(DiagnosticProblem, problem_id)
+        if not problem:
+            return jsonify({"error": "Problem not found"}), 404
+
+        question = problem.question
+        correct_answer = problem.correct_answer
+        qtype = problem.type
+
     try:
-        judgment = ask_gpt(prompt, max_tokens=10)
-        return jsonify({"result": judgment.strip()})
+        # Select grading strategy
+        if qtype == "mcq" or qtype == "numeric":
+            prompt = f"""
+You are an AI grader. Determine whether the student's answer is correct.
+Question: {question}
+Student's Answer: {student_answer}
+Respond with only 'Correct' or 'Incorrect'.
+"""
+            judgment = ask_gpt(prompt, max_tokens=10)
+            response = {"result": judgment.strip()}
+            if judgment.strip().lower() == "incorrect" and correct_answer:
+                response["correct_answer"] = correct_answer
+
+        elif qtype == "proof":
+            prompt = f"""
+You are a math proof grader. Evaluate the student's proof and return only:
+'Correct' or 'Incorrect' based on logical validity and completeness.
+
+Question: {question}
+Student's Proof: {student_answer}
+"""
+            judgment = ask_gpt(prompt, max_tokens=20)
+            response = {"result": judgment.strip()}
+
+        elif qtype == "graph":
+            response = {
+                "result": "Pending manual review",  # or "Needs graphical validation"
+                "note": "Graph-based answers require visual review."
+            }
+
+        else:
+            response = {"result": "Unsupported question type"}
+
+        return jsonify(response)
+    
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 
 # This route generates a study plan based on the student's mastery report
@@ -244,40 +310,76 @@ def teacher_config():
     return jsonify({"status": "saved", "config": config})
 
 
-# Apply teacher config to prompt generation (FR-20-7)
+# Generate diagnostic questions for a given topic
 @assessment_bp.route('/skill_assessment/diagnostic_test', methods=['POST'])
 def diagnostic_test():
     topic = request.json.get('topic')
     grade = request.json.get('grade', 'K-12')
     teacher_id = request.json.get('teacher_id')
+    student_id = request.json.get('student_id')
     config = teacher_configs.get(teacher_id, {})
-
-    difficulty_profile = config.get('difficulty_profile', 'balanced')
-    time_per_item = config.get('time_per_item', 'default')
-    hint_enabled = config.get('hint_enabled', True)
-    stop_rule = config.get('stop_rule', 'default')
 
     prompt = f"""
 You are a math expert. Generate diagnostic questions for topic \"{topic}\" at grade {grade} level.
-Follow this structure: topic > subtopic > subsubtopic.
-Include 3 questions per subsubtopic. Each group should have:
-- One easy question, one medium question, one hard question
-Teacher config:
-- Difficulty profile: {difficulty_profile}
-- Time per item: {time_per_item} seconds
-- Hints enabled: {hint_enabled}
-- Stop rule: {stop_rule}
-Return the result as a JSON object:
+Each question must include:
+- difficulty ("easy", "medium", or "hard")
+- type (must be one of: "mcq", "numeric", "proof", "graph")
+- correct_answer
+- options (for MCQ only)
+
+Include at least one question of type "proof" and one question of type "graph".
+Respond ONLY with raw JSON. DO NOT use code blocks (no ```json). No explanations or commentary. Output:
 {{
-  "Topic > Subtopic > Subsubtopic": [
-    {{"difficulty": "easy", "question": "..."}},
-    {{"difficulty": "medium", "question": "..."}},
-    {{"difficulty": "hard", "question": "..."}}
+  "Subtopic Name": [
+    {{
+      "difficulty": "...",
+      "type": "...",
+      "question": "...",
+      "correct_answer": "...",
+      "options": ["..."]
+    }},
+    ...
   ]
 }}
 """
+
     try:
-        result = ask_gpt(prompt, max_tokens=1000)
-        return result
+        response = ask_gpt(prompt, max_tokens=1000)
+
+        # Check if the response appears to be valid JSON
+        if not response.strip().startswith("{"):
+            print("GPT returned invalid JSON:\n", response)
+            return jsonify({"error": "GPT did not return valid JSON", "raw": response}), 500
+
+        # Attempt to parse JSON
+        question_data = json.loads(response)
+
+        with Session(engine) as session:
+            for subtopic, questions in question_data.items():
+                for item in questions:
+                    db_entry = DiagnosticProblem(
+                        student_id=int(student_id),
+                        subtopic=subtopic,
+                        question=item['question'],
+                        difficulty=item.get('difficulty', 'medium'),
+                        type=item.get('type', 'numeric'),
+                        options=json.dumps(item.get('options')) if item.get('options') else None,
+                        correct_answer=item.get('correct_answer'),
+                        is_served=False
+                    )
+                    session.add(db_entry)
+            session.commit()
+
+        return jsonify({"status": "saved", "count": sum(len(v) for v in question_data.values())})
+
+    except json.JSONDecodeError as je:
+        print("JSON decoding failed:", str(je))
+        return jsonify({
+            "error": "Failed to parse GPT response as JSON",
+            "details": str(je),
+            "raw": response
+        }), 500
+
     except Exception as e:
+        print("Unhandled exception:", str(e))
         return jsonify({"error": str(e)}), 500
