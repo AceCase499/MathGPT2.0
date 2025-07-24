@@ -19,21 +19,10 @@ interface Question {
   type: 'mcq' | 'numeric' | 'proof' | 'graph'
   topic: string // For strengths/gaps analysis
   hint?: string // For hints
+  difficulty?: string
 }
 
 
-const mockQuestions: Question[] = [
-  { id: 1, text: 'What is 2 + 2?', options: ['3', '4', '5', '6'], correctIndex: 1, type: 'mcq', topic: 'Addition', hint: 'Think about pairs of numbers.' },
-  { id: 2, text: 'What is 5 × 3?', options: ['8', '15', '10', '13'], correctIndex: 1, type: 'mcq', topic: 'Multiplication', hint: 'Multiplication is repeated addition.' },
-  { id: 3, text: 'What is √16?', answer: 4, type: 'numeric', topic: 'Square Roots', hint: 'What number times itself gives 16?' },
-  { id: 4, text: 'Prove that the sum of two even numbers is even.', answer: 'proof', type: 'proof', topic: 'Proofs', hint: 'Express even numbers as 2k.' },
-  { id: 5, text: 'Plot the graph of y = x^2.', type: 'graph', topic: 'Graphing', hint: 'Try plotting points for x = -2, -1, 0, 1, 2.' },
-  { id: 6, text: 'What is 7 + 6?', options: ['11', '13', '14', '12'], correctIndex: 1, type: 'mcq', topic: 'Addition', hint: 'Add 7 and 6 together.' },
-  { id: 7, text: 'What is 12 - 4?', answer: 8, type: 'numeric', topic: 'Subtraction', hint: 'Subtract 4 from 12.' },
-  { id: 8, text: 'What is 6 × 6?', options: ['36', '30', '12', '18'], correctIndex: 0, type: 'mcq', topic: 'Multiplication', hint: '6 times 6 is?' },
-  { id: 9, text: 'What is 100 ÷ 25?', options: ['2', '3', '4', '5'], correctIndex: 2, type: 'mcq', topic: 'Division', hint: 'How many times does 25 fit into 100?' },
-  { id: 10, text: 'What is 9 + 10?', options: ['19', '21', '20', '15'], correctIndex: 0, type: 'mcq', topic: 'Addition', hint: 'Add 9 and 10.' },
-]
 
 // Add GraphingTool component above the main AssessmentEntry function
 function GraphingTool({ value, onChange, disabled, func, showAnswer }: { value: Array<{x: number, y: number}>, onChange: (pts: Array<{x: number, y: number}>) => void, disabled: boolean, func?: (x: number) => number, showAnswer?: boolean }) {
@@ -93,6 +82,42 @@ async function fetchMicroLecture(strengths: string[], gaps: string[]): Promise<s
   );
 }
 
+async function fetchDiagnosticQuestions(topic: string, grade: string = 'K-12', numQuestions: number = 3) {
+  console.log('[fetchDiagnosticQuestions] topic:', topic, 'grade:', grade, 'numQuestions:', numQuestions);
+  try {
+    const res = await fetch('https://mathgptdevs25.pythonanywhere.com/skill_assessment/diagnostic_test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ topic, grade, numQuestions }),
+    });
+    console.log('[fetchDiagnosticQuestions] fetch status:', res.status);
+    const text = await res.text();
+    console.log('[fetchDiagnosticQuestions] raw text:', text);
+
+   // ------------------------------------------
+    let cleanText = text.trim();
+    if (cleanText.startsWith('```json')) {
+      cleanText = cleanText.replace(/^```json\s*/, '').replace(/```[\s\n]*$/, '').trim();
+    } else if (cleanText.startsWith('```')) {
+      cleanText = cleanText.replace(/^```\s*/, '').replace(/```[\s\n]*$/, '').trim();
+    }
+    console.log('[fetchDiagnosticQuestions] cleanText:', cleanText);
+    // ------------------------------------------
+
+    let diagnostic = {};
+    try {
+      diagnostic = JSON.parse(cleanText);
+      console.log('[fetchDiagnosticQuestions] parsed diagnostic:', diagnostic);
+    } catch (e) {
+      console.error('[fetchDiagnosticQuestions] parse error:', e, 'cleanText:', cleanText);
+    }
+    return diagnostic;
+  } catch (err) {
+    console.error('[fetchDiagnosticQuestions] fetch error:', err);
+    return {};
+  }
+}
+
 export default function AssessmentEntry() {
   const { user } = useContext(AuthContext) as any;
   const router = useRouter();
@@ -139,7 +164,10 @@ export default function AssessmentEntry() {
 
   // 1. On assessment start, fetch personalization info and filter questions
   const [personalization, setPersonalization] = useState<{age?: number, grade?: string, topic?: string} | null>(null);
-  const [filteredQuestions, setFilteredQuestions] = useState<Question[]>(mockQuestions);
+  const [topic] = useState('Addition'); 
+  const [grade] = useState('K-12'); 
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [loading, setLoading] = useState(true);
 
   // Add state for graph points:
   const [graphPoints, setGraphPoints] = useState<Array<{x: number, y: number}>>([]);
@@ -159,7 +187,7 @@ export default function AssessmentEntry() {
         try {
           const parsed = JSON.parse(teacherQuestions);
           if (Array.isArray(parsed) && parsed.length > 0) {
-            setFilteredQuestions(parsed);
+            setQuestions(parsed);
             return;
           }
         } catch {}
@@ -167,12 +195,12 @@ export default function AssessmentEntry() {
       // Otherwise, filter mockQuestions by personalization
       if (profile) {
         const { age, grade, topic } = JSON.parse(profile);
-        let filtered = mockQuestions;
+        let filtered = questions; //
         if (topic) filtered = filtered.filter(q => q.topic === topic);
         // Optionally filter by age/grade if questions have such metadata
-        setFilteredQuestions(filtered);
+        setQuestions(filtered);
       } else {
-        setFilteredQuestions(mockQuestions);
+        setQuestions(questions); 
       }
     }
   }, []);
@@ -238,7 +266,7 @@ export default function AssessmentEntry() {
             handleSubmit();
           } else {
             // Skip: move to next question
-            if (currentIndex + 1 < filteredQuestions.length) {
+            if (currentIndex + 1 < questions.length) {
               setCurrentIndex(currentIndex + 1);
               setSelectedOption(null);
               setSelectedConfidence(null);
@@ -280,7 +308,7 @@ export default function AssessmentEntry() {
       .map(([id]) => Number(id));
     // Calculate performance by topic
     const perf: {[topic: string]: {correct: number, total: number}} = {};
-    filteredQuestions.forEach((q, idx) => {
+    questions.forEach((q, idx) => {
       if (!perf[q.topic]) perf[q.topic] = {correct: 0, total: 0};
       perf[q.topic].total += 1;
       // For now, use correctCount as a stub; ideally, track per-question correctness
@@ -291,7 +319,7 @@ export default function AssessmentEntry() {
     // Select up to 5 unique review items (by question or topic)
     const reviewItems = [];
     for (const id of lowConfidenceIds) {
-      const q = filteredQuestions.find(q => q.id === id);
+      const q = questions.find(q => q.id === id);
       if (q && !reviewItems.find(item => item.id === q.id)) {
         reviewItems.push({ id: q.id, text: q.text, topic: q.topic });
       }
@@ -299,7 +327,7 @@ export default function AssessmentEntry() {
     }
     for (const topic of lowPerfTopics) {
       if (!reviewItems.find(item => item.topic === topic)) {
-        const q = filteredQuestions.find(q => q.topic === topic);
+        const q = questions.find(q => q.topic === topic);
         if (q) reviewItems.push({ id: q.id, text: q.text, topic: q.topic });
       }
       if (reviewItems.length >= 5) break;
@@ -356,11 +384,10 @@ export default function AssessmentEntry() {
     }, 0)
   }
 
-  const handleTakeNow = () => {
+  const handleTakeNow = async () => {
     localStorage.setItem('assessment_taken', 'true');
     setAssessmentTaken(true);
     setShowModal(false);
-    setInAssessment(true);
     setCurrentIndex(0);
     setSelectedOption(null);
     setSelectedConfidence(null);
@@ -370,7 +397,43 @@ export default function AssessmentEntry() {
     setPerformanceByTopic({});
     setShowMicroLecture(false);
     setShowGoNext(false);
-  }
+
+    setLoading(true);
+    try {
+      const diagnostic = await fetchDiagnosticQuestions(topic, grade, Number(settings.numQuestions) || 3);
+      const qList = [];
+      let id = 1;
+      Object.entries(diagnostic).forEach(([subtopic, arr]) => {
+        if (Array.isArray(arr)) {
+          arr.forEach((q) => {
+            if (q && q.question) {
+              qList.push({
+                id: id++,
+                text: q.question,
+                type: typeof q.type === 'string' && ['mcq', 'numeric', 'proof', 'graph'].includes(q.type)
+  ? q.type
+  : q.options
+    ? 'mcq'
+    : 'numeric',
+
+                topic: subtopic,
+                difficulty: q.difficulty,
+                options: q.options,
+                correctIndex: q.correctIndex,
+                answer: q.answer
+              });
+            }
+          });
+        }
+      });
+      console.log('[handleTakeNow] qList:', qList);
+      setQuestions(qList);
+      setInAssessment(true); 
+    } catch (e) {
+      alert('Failed to fetch questions');
+    }
+    setLoading(false);
+  };
 
   const handleRetake = () => {
     const confirmRetake = confirm('This will erase your previous results and restart the assessment. Do you want to continue?');
@@ -405,7 +468,7 @@ export default function AssessmentEntry() {
     if (selectedOption === null || selectedConfidence === null) return;
     setLocked(true);
 
-    const currentQuestion = filteredQuestions[currentIndex];
+    const currentQuestion = questions[currentIndex];
 
     let isCorrect = false;
     if (currentQuestion.type === 'mcq') {
@@ -436,7 +499,7 @@ export default function AssessmentEntry() {
       const correct = isCorrect ? correctCount + 1 : correctCount;
       const wilson = wilsonScoreInterval(correct, total);
       // Termination criteria
-      if (wilson.width < 0.06 || currentIndex + 1 >= filteredQuestions.length) {
+      if (wilson.width < 0.06 || currentIndex + 1 >= questions.length) {
         // Set proficiency level before finishing
         const label = getProficiencyLabel();
         setProficiencyLevel(label);
@@ -447,7 +510,7 @@ export default function AssessmentEntry() {
         localStorage.removeItem('assessment_progress');
         finishAssessment();
       } else {
-        if (currentIndex + 1 < filteredQuestions.length) {
+        if (currentIndex + 1 < questions.length) {
         setCurrentIndex(currentIndex + 1)
         setSelectedOption(null)
         setFeedback('')
@@ -457,7 +520,7 @@ export default function AssessmentEntry() {
         }
       }
     }, 1500)
-    setConfidence(c => ({ ...c, [filteredQuestions[currentIndex].id]: selectedConfidence }));
+    setConfidence(c => ({ ...c, [questions[currentIndex].id]: selectedConfidence }));
     setCorrectnessArr(arr => {
       const newArr = [...arr];
       newArr[currentIndex] = isCorrect;
@@ -466,7 +529,7 @@ export default function AssessmentEntry() {
   }
 
   const getProficiencyLabel = () => {
-    const percent = correctCount / filteredQuestions.length
+    const percent = correctCount / questions.length
     if (percent === 1) return 'Advanced'
     if (percent >= 0.66) return 'Intermediate'
     return 'Beginner'
@@ -499,7 +562,7 @@ export default function AssessmentEntry() {
   useEffect(() => {
     if (showSummary) {
       const perf: {[topic: string]: {correct: number, total: number}} = {};
-      filteredQuestions.forEach((q, idx) => {
+      questions.forEach((q, idx) => {
         if (!perf[q.topic]) perf[q.topic] = {correct: 0, total: 0};
         perf[q.topic].total += 1;
         if (correctnessArr[idx]) perf[q.topic].correct += 1;
@@ -519,8 +582,22 @@ export default function AssessmentEntry() {
   useEffect(() => { setMounted(true); }, []);
   if (!mounted) return null;
 
+  console.log('questions for render:', questions);
+
   return (
     <div className="w-full flex flex-col min-h-screen bg-white">
+      {/* Loading overlay */}
+      {loading && !showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-200 bg-opacity-70">
+          <div className="bg-white rounded-2xl shadow-2xl px-10 py-8 flex flex-col items-center border border-blue-100">
+            <svg className="animate-spin mb-4" width="48" height="48" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="10" stroke="#2563eb" strokeWidth="4" strokeDasharray="60" strokeDashoffset="20"/>
+            </svg>
+            <div className="text-lg font-semibold text-gray-800 mb-2">Generating your assessment...</div>
+            <div className="text-gray-600 text-base text-center">This may take up to 20 seconds. Please wait while we prepare personalized questions for you.</div>
+          </div>
+        </div>
+      )}
     
       {settingsLoaded && isTeacherOrAdmin && (
         <div className="flex flex-1 flex-col items-center justify-center min-h-screen w-full">
@@ -617,22 +694,22 @@ export default function AssessmentEntry() {
               Questions are generated dynamically for each student based on these settings.
             </div>
 
-            {/* 分隔线 */}
+          
             <hr className="my-8 w-full border-gray-300" />
 
-            {/* 分配测验区域 */}
+  
             <AssignAssessmentMock />
 
-            {/* 分隔线 */}
+
             <hr className="my-8 w-full border-gray-300" />
 
-            {/* 学生成绩区域 */}
+
             <StudentResultsMock />
           </div>
         </div>
       )}
 
-      {/* 学生 assessment 流程 */}
+    
       {!isTeacherOrAdmin && (
         <>
           {showModal && (
@@ -713,79 +790,85 @@ export default function AssessmentEntry() {
                   >
                     <Pause size={24} />
                   </button>
-                  <h3 className="text-2xl font-medium mb-8 text-gray-800">
-                    Question {currentIndex + 1} of {filteredQuestions.length}
-                  </h3>
-                  <p className="mb-6 font-medium text-xl text-gray-700">{filteredQuestions[currentIndex].text}</p>
-                  {filteredQuestions[currentIndex].type === 'mcq' && filteredQuestions[currentIndex].options && (
-                    <div className="space-y-4 mb-8">
-                      {filteredQuestions[currentIndex].options.map((opt, i) => (
-                        <button
-                          key={i}
-                          disabled={locked}
-                          onClick={() => {
-                            setSelectedOption(i);
-                            setSelectedConfidence(null); // Reset confidence when changing answer
-                          }}
-                          className={`w-full text-left px-6 py-4 rounded-lg border-2 shadow-md transition-colors bg-white flex items-center ${
-                            selectedOption === i
-                              ? 'border-blue-500 bg-blue-50 text-blue-900 font-semibold'
-                              : 'border-gray-300 text-gray-600 hover:bg-gray-100'
-                          }`}
-                        >
-                          {/* No emoji for selected option */}
-                          {String.fromCharCode(65 + i)}. {opt}
-                        </button>
-                      ))}
-                    </div>
+                  {questions.length > 0 && currentIndex < questions.length ? (
+                    <>
+                      <h3 className="text-2xl font-medium mb-8 text-gray-800">
+                        Question {currentIndex + 1} of {questions.length}
+                      </h3>
+                      <p className="mb-6 font-medium text-xl text-gray-700">{questions[currentIndex].text}</p>
+                      {questions[currentIndex].type === 'mcq' && questions[currentIndex].options && (
+                        <div className="space-y-4 mb-8">
+                          {questions[currentIndex].options.map((opt, i) => (
+                            <button
+                              key={i}
+                              disabled={locked}
+                              onClick={() => {
+                                setSelectedOption(i);
+                                setSelectedConfidence(null); // Reset confidence when changing answer
+                              }}
+                              className={`w-full text-left px-6 py-4 rounded-lg border-2 shadow-md transition-colors bg-white flex items-center ${
+                                selectedOption === i
+                                  ? 'border-blue-500 bg-blue-50 text-blue-900 font-semibold'
+                                  : 'border-gray-300 text-gray-600 hover:bg-gray-100'
+                              }`}
+                            >
+                              {/* No emoji for selected option */}
+                              {String.fromCharCode(65 + i)}. {opt}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      {questions[currentIndex].type === 'numeric' && (
+                        <div className="mb-8">
+                          <input
+                            type="number"
+                            value={typeof selectedOption === 'number' ? selectedOption : ''}
+                            onChange={e => {
+                              setSelectedOption(Number(e.target.value));
+                              setSelectedConfidence(null); // Reset confidence when changing answer
+                            }}
+                            disabled={locked}
+                            className="w-full px-6 py-4 rounded-lg border border-gray-300 shadow-md bg-white"
+                            placeholder="Enter your answer"
+                          />
+                        </div>
+                      )}
+
+                      {questions[currentIndex].type === 'proof' && (
+                        <div className="mb-8">
+                          <textarea
+                            value={typeof selectedOption === 'string' ? selectedOption : ''}
+                            onChange={e => {
+                              setSelectedOption(e.target.value);
+                              setSelectedConfidence(null); // Reset confidence when changing answer
+                            }}
+                            disabled={locked}
+                            className="w-full px-6 py-4 rounded-lg border border-gray-300 shadow-md bg-white"
+                            placeholder="Enter your proof step by step"
+                            rows={5}
+                          />
+                        </div>
+                      )}
+
+                      {questions[currentIndex].type === 'graph' && (
+                        <div className="mb-8 bg-white rounded-lg p-4 border border-gray-300 shadow-md">
+                          <GraphingTool
+                            value={graphPoints}
+                            onChange={pts => { setGraphPoints(pts); setSelectedOption(pts); setSelectedConfidence(null); }}
+                            disabled={locked}
+                            func={questions[currentIndex].text.includes('y = x^2') ? (x => x * x) : undefined}
+                            showAnswer={false}
+                          />
+                          <div className="mt-2 text-sm text-gray-500">Click on the grid to plot points for your answer.</div>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div>Loading questions...</div>
                   )}
 
-                  {filteredQuestions[currentIndex].type === 'numeric' && (
-                    <div className="mb-8">
-                      <input
-                        type="number"
-                        value={typeof selectedOption === 'number' ? selectedOption : ''}
-                        onChange={e => {
-                          setSelectedOption(Number(e.target.value));
-                          setSelectedConfidence(null); // Reset confidence when changing answer
-                        }}
-                        disabled={locked}
-                        className="w-full px-6 py-4 rounded-lg border border-gray-300 shadow-md bg-white"
-                        placeholder="Enter your answer"
-                      />
-                    </div>
-                  )}
-
-                  {filteredQuestions[currentIndex].type === 'proof' && (
-                    <div className="mb-8">
-                      <textarea
-                        value={typeof selectedOption === 'string' ? selectedOption : ''}
-                        onChange={e => {
-                          setSelectedOption(e.target.value);
-                          setSelectedConfidence(null); // Reset confidence when changing answer
-                        }}
-                        disabled={locked}
-                        className="w-full px-6 py-4 rounded-lg border border-gray-300 shadow-md bg-white"
-                        placeholder="Enter your proof step by step"
-                        rows={5}
-                      />
-                    </div>
-                  )}
-
-                  {filteredQuestions[currentIndex].type === 'graph' && (
-                    <div className="mb-8 bg-white rounded-lg p-4 border border-gray-300 shadow-md">
-                      <GraphingTool
-                        value={graphPoints}
-                        onChange={pts => { setGraphPoints(pts); setSelectedOption(pts); setSelectedConfidence(null); }}
-                        disabled={locked}
-                        func={filteredQuestions[currentIndex].text.includes('y = x^2') ? (x => x * x) : undefined}
-                        showAnswer={false}
-                      />
-                      <div className="mt-2 text-sm text-gray-500">Click on the grid to plot points for your answer.</div>
-                    </div>
-                  )}
-
-                  {settings.hintAvailable && filteredQuestions[currentIndex].hint && (
+                  {settings.hintAvailable && questions[currentIndex]?.hint && (
                     <div className="mt-4 flex flex-col items-center">
                       <button
                         onClick={() => setShowHint(true)}
@@ -799,7 +882,7 @@ export default function AssessmentEntry() {
                       {showHint && (
                         <div className="mt-4 w-full max-w-md mx-auto flex items-start gap-3 bg-yellow-50 border-l-4 border-yellow-400 shadow-md rounded-lg p-4 animate-fade-in">
                           <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="none" viewBox="0 0 24 24"><path fill="#facc15" d="M12 2a7 7 0 0 0-7 7c0 2.386 1.32 4.434 3.25 5.5V17a2 2 0 0 0 2 2h1.5a2 2 0 0 0 2-2v-2.5C17.68 13.434 19 11.386 19 9a7 7 0 0 0-7-7Zm1.5 15a.5.5 0 0 1-.5.5H11a.5.5 0 0 1-.5-.5v-1h3v1Zm-1.5-3c-2.757 0-5-2.243-5-5a5 5 0 1 1 10 0c0 2.757-2.243 5-5 5Z"/></svg>
-                          <span className="text-yellow-800 text-base font-medium" style={{lineHeight: '1.6'}}>{filteredQuestions[currentIndex].hint}</span>
+                          <span className="text-yellow-800 text-base font-medium" style={{lineHeight: '1.6'}}>{questions[currentIndex].hint}</span>
                         </div>
                       )}
                     </div>

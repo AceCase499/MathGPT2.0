@@ -4,7 +4,6 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import AddCourseModal from './AddCourseModal';
 
-// Mock 课程数据
 const mockCourses = [
   {
     id: 1,
@@ -77,7 +76,7 @@ const mockCourses = [
   },
 ];
 
-// 进度条组件
+
 function ProgressBar({ percent, className = '', style = {} }: { percent: number, className?: string, style?: React.CSSProperties }) {
   return (
     <div className={`h-10 bg-gray-200 rounded-full mt-2 mb-2 border border-white ${className}`} style={{ width: '100%', ...style }}>
@@ -89,7 +88,7 @@ function ProgressBar({ percent, className = '', style = {} }: { percent: number,
   );
 }
 
-// 课程详情页（原有页面）
+
 function CourseDetail({ course, onBack }: { course: any, onBack: () => void }) {
   const [selectedTopic, setSelectedTopic] = useState(course.topics[0]);
   const [selectedSubtopic, setSelectedSubtopic] = useState<any>(null);
@@ -97,7 +96,6 @@ function CourseDetail({ course, onBack }: { course: any, onBack: () => void }) {
   const router = useRouter();
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
-      {/* header 只显示topic名称和大进度条，去掉紫色背景 */}
       <div className="w-full mt-24" style={{background: 'transparent'}}>
         <div className="flex flex-col items-center w-full">
           <div className="w-full flex flex-col items-center">
@@ -124,7 +122,6 @@ function CourseDetail({ course, onBack }: { course: any, onBack: () => void }) {
       </div>
       <div className="border-b border-gray-200 w-full"></div>
       <div className="flex flex-1">
-        {/* subtopic进度条宽度加倍 */}
         <aside className="w-1/4 bg-gray-50 p-6 min-h-full">
           <h2 className="text-lg font-semibold mb-4">Subtopics</h2>
           <ul>
@@ -166,7 +163,7 @@ function CourseDetail({ course, onBack }: { course: any, onBack: () => void }) {
   );
 }
 
-// 课程首页
+
 export default function CoursesPage() {
   const [selectedCourse, setSelectedCourse] = useState<any>(null);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -175,7 +172,7 @@ export default function CoursesPage() {
   }
   return (
     <div className="flex flex-col min-h-screen bg-gray-50 relative">
-      {/* 右上角 Add Course 按钮，紧贴 profile icon 下方 */}
+ 
       <button
         className="bg-[#e5e7eb] text-[#333] px-6 py-2 rounded-full font-semibold shadow hover:bg-[#cbd5e1] transition text-lg absolute right-10 top-[100px] z-20"
         style={{ minWidth: 160 }}
@@ -185,7 +182,7 @@ export default function CoursesPage() {
       </button>
       {showAddModal && <AddCourseModal onClose={() => setShowAddModal(false)} />}
       <div className="flex flex-1 w-full">
-        {/* 左侧：Your Courses + 列表 */}
+  
         <aside className="w-2/3 max-w-2xl p-10 pt-24">
           <div className="text-2xl font-bold text-[#8431a7] mb-6 mt-2">Your Courses</div>
           <ul>
@@ -200,7 +197,6 @@ export default function CoursesPage() {
             ))}
           </ul>
         </aside>
-        {/* 右侧空白占位 */}
         <main className="flex-1 flex flex-col items-center justify-start p-10"></main>
       </div>
     </div>
