@@ -164,6 +164,21 @@ class Problem_Sessions(Base):
     def __repr__(self):
         return f"Problem_Session(id={self.id}, title={self.title})"
 
+class DiagnosticProblem(Base):
+    __tablename__ = "diagnostic_problem"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    student_id: Mapped[int] = mapped_column(ForeignKey("student.id"))
+    subtopic: Mapped[str] = mapped_column(String)
+    question: Mapped[str] = mapped_column(Text)
+    difficulty: Mapped[str] = mapped_column(String)
+    type: Mapped[str] = mapped_column(String)
+    options: Mapped[Optional[str]] = mapped_column(Text, nullable=True) 
+    correct_answer: Mapped[Optional[str]] = mapped_column(Text, nullable=True) 
+    is_served: Mapped[bool] = mapped_column(default=False)
+
+    def __repr__(self):
+        return f"DiagnosticProblem(id={self.id}, subtopic={self.subtopic})"
+        
 Base.metadata.create_all(engine)
 engine.dispose()
 
