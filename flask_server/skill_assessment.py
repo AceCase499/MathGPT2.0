@@ -15,7 +15,7 @@ client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
 assessment_bp = Blueprint('assessment', __name__)
 
-def ask_gpt(prompt, model="gpt-4o", max_tokens=2000, temperature=0.7):
+def ask_gpt(prompt, model="gpt-4o", max_tokens=2000, temperature=1.0):
     response = client.chat.completions.create(
         model=model,
         messages=[{"role": "user", "content": prompt}],
@@ -320,31 +320,37 @@ def diagnostic_test():
     config = teacher_configs.get(teacher_id, {})
 
     prompt = f"""
-You are a math expert. Generate diagnostic questions for topic \"{topic}\" at grade {grade} level.
-Each question must include:
-- difficulty ("easy", "medium", or "hard")
-- type (must be one of: "mcq", "numeric", "proof", "graph")
-- correct_answer
-- options (for MCQ only)
+        You are a math expert. Generate diagnostic questions for topic \"{topic}\" at grade {grade} level.
+        Each question must include:
+        - difficulty ("easy", "medium", or "hard")
+        - type (must be one of: "mcq", "numeric", "proof", "graph")
+        - correct_answer
+        - options (mandatory for MCQ; 3 to 5 well-formed choices; correct_answer must be one of them)
 
-Include at least one question of type "proof" and one question of type "graph".
-Respond ONLY with raw JSON. DO NOT use code blocks (no ```json). No explanations or commentary. Output:
-{{
-  "Subtopic Name": [
-    {{
-      "difficulty": "...",
-      "type": "...",
-      "question": "...",
-      "correct_answer": "...",
-      "options": ["..."]
-    }},
-    ...
-  ]
-}}
-"""
+        Ensure at least one question of type "proof" and one of type "graph".
+        Respond ONLY with strict JSON. DO NOT use code blocks (no ```), markdown, or explanations. 
+        All MCQ questions must include:
+        - A key "options" with 3–5 choices (as a list of strings)
+        - The "correct_answer" must be one of the "options"
+
+        Format:
+        {{
+        "Subtopic Name": [
+            {{
+            "difficulty": "...",
+            "type": "...",
+            "question": "...",
+            "correct_answer": "...",
+            "options": ["..."]
+            }},
+            ...
+        ]
+        }}
+        
+    """
 
     try:
-        response = ask_gpt(prompt, max_tokens=1000)
+        response = ask_gpt(prompt, max_tokens=2000)
 
         # Check if the response appears to be valid JSON
         if not response.strip().startswith("{"):
@@ -357,6 +363,17 @@ Respond ONLY with raw JSON. DO NOT use code blocks (no ```json). No explanations
         with Session(engine) as session:
             for subtopic, questions in question_data.items():
                 for item in questions:
+                    qtype = item.get("type", "numeric")
+                    # Enforce options check only for MCQ
+                    if qtype == "mcq":
+                        opts = item.get("options")
+                        if len(opts) < 2:
+                            print(f"Skipping invalid MCQ (missing or insufficient options): {item}")
+                            continue
+                        if item.get("correct_answer") not in opts:
+                            print(f"Skipping MCQ (correct_answer not in options): {item}")
+                            continue
+
                     db_entry = DiagnosticProblem(
                         student_id=int(student_id),
                         subtopic=subtopic,
@@ -383,3 +400,21 @@ Respond ONLY with raw JSON. DO NOT use code blocks (no ```json). No explanations
     except Exception as e:
         print("Unhandled exception:", str(e))
         return jsonify({"error": str(e)}), 500
+
+
+# list all the problems for testing
+@assessment_bp.route('/skill_assessment/list_problems', methods=['GET'])
+def list_problems():
+    student_id = request.args.get('student_id')
+    with Session(engine) as session:
+        problems = session.query(DiagnosticProblem).filter_by(student_id=student_id).all()
+        result = [{
+            "id": p.id,
+            "type": p.type,
+            "difficulty": p.difficulty,
+            "question": p.question,
+            "options": json.loads(p.options) if p.options else None,
+            "correct_answer": p.correct_answer
+        } for p in problems]
+    return jsonify(result)
+
