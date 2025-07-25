@@ -86,7 +86,7 @@ async function fetchDiagnosticQuestions(topic: string, grade: string = 'K-12', n
   console.log('[fetchDiagnosticQuestions] topic:', topic, 'grade:', grade, 'numQuestions:', numQuestions, 'student_id:', student_id);
   try {
     const res = await fetch(
-      `https://mathgptdevs25.pythonanywhere.com/skill_assessment/pick_problem?ts=${Date.now()}`,
+      `https://mathgptdevs25.pythonanywhere.com/skill_assessment/diagnostic_test?ts=${Date.now()}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -406,45 +406,68 @@ export default function AssessmentEntry() {
       const diagnostic = await fetchDiagnosticQuestions(topic, grade, Number(settings.numQuestions) || 3, user?.id);
       const qList = [];
       let id = 1;
-      Object.entries(diagnostic).forEach(([subtopic, arrOrObj]) => {
-        if (Array.isArray(arrOrObj)) {
-          arrOrObj.forEach((q) => {
-            if (q && q.question) {
-              qList.push({
-                id: id++,
-                text: q.question,
-                type: typeof q.type === 'string' && ['mcq', 'numeric', 'proof', 'graph'].includes(q.type)
-                  ? q.type
-                  : q.options
-                    ? 'mcq'
-                    : 'numeric',
-                topic: subtopic,
-                difficulty: q.difficulty,
-                options: q.options,
-                correctIndex: q.correctIndex,
-                answer: q.answer
-              });
-            }
-          });
-        } else if (arrOrObj && typeof arrOrObj === 'object' && (arrOrObj as any).question) {
-          // Support single question object
-          const q = arrOrObj as any;
-          qList.push({
-            id: id++,
-            text: q.question,
-            type: typeof q.type === 'string' && ['mcq', 'numeric', 'proof', 'graph'].includes(q.type)
-              ? q.type
-              : q.options
-                ? 'mcq'
-                : 'numeric',
-            topic: subtopic,
-            difficulty: q.difficulty,
-            options: q.options,
-            correctIndex: q.correctIndex,
-            answer: q.answer
-          });
-        }
-      });
+      // Handle new backend response format with questions array
+      if ((diagnostic as any).questions && Array.isArray((diagnostic as any).questions)) {
+        (diagnostic as any).questions.forEach((q: any) => {
+          if (q && q.question) {
+            qList.push({
+              id: id++,
+              text: q.question,
+              type: typeof q.type === 'string' && ['mcq', 'numeric', 'proof', 'graph'].includes(q.type)
+                ? q.type
+                : q.options
+                  ? 'mcq'
+                  : 'numeric',
+              topic: q.subtopic || 'Unknown',
+              difficulty: q.difficulty,
+              options: q.options,
+              correctIndex: q.options && q.correct_answer ? q.options.indexOf(q.correct_answer) : undefined,
+              answer: q.correct_answer
+            });
+          }
+        });
+      } else {
+        // Handle old format for backward compatibility
+        Object.entries(diagnostic).forEach(([subtopic, arrOrObj]) => {
+          if (Array.isArray(arrOrObj)) {
+            arrOrObj.forEach((q) => {
+              if (q && q.question) {
+                qList.push({
+                  id: id++,
+                  text: q.question,
+                  type: typeof q.type === 'string' && ['mcq', 'numeric', 'proof', 'graph'].includes(q.type)
+                    ? q.type
+                    : q.options
+                      ? 'mcq'
+                      : 'numeric',
+                  topic: subtopic,
+                  difficulty: q.difficulty,
+                  options: q.options,
+                  correctIndex: q.correctIndex,
+                  answer: q.answer
+                });
+              }
+            });
+          } else if (arrOrObj && typeof arrOrObj === 'object' && (arrOrObj as any).question) {
+            // Support single question object
+            const q = arrOrObj as any;
+            qList.push({
+              id: id++,
+              text: q.question,
+              type: typeof q.type === 'string' && ['mcq', 'numeric', 'proof', 'graph'].includes(q.type)
+                ? q.type
+                : q.options
+                  ? 'mcq'
+                  : 'numeric',
+              topic: subtopic,
+              difficulty: q.difficulty,
+              options: q.options,
+              correctIndex: q.correctIndex,
+              answer: q.answer
+            });
+          }
+        });
+      }
       console.log('[handleTakeNow] qList:', qList);
       setQuestions(qList);
       setInAssessment(true); 
@@ -469,6 +492,7 @@ export default function AssessmentEntry() {
       setPerformanceByTopic({});
       setShowMicroLecture(false);
       setShowGoNext(false);
+      setLocked(false);
     }
   }
 
@@ -510,7 +534,25 @@ export default function AssessmentEntry() {
     }
 
     if (isCorrect) setCorrectCount((prev) => prev + 1);
-    setFeedback(isCorrect ? 'Correct!' : 'Incorrect');
+    
+    // Generate feedback with correct answer
+    let feedbackText = '';
+    if (isCorrect) {
+      feedbackText = 'Correct!';
+    } else {
+      if (currentQuestion.type === 'mcq' && currentQuestion.options && currentQuestion.correctIndex !== undefined) {
+        feedbackText = `Incorrect. The correct answer is: ${currentQuestion.options[currentQuestion.correctIndex]}`;
+      } else if (currentQuestion.type === 'numeric' && currentQuestion.answer !== undefined) {
+        feedbackText = `Incorrect. The correct answer is: ${currentQuestion.answer}`;
+      } else if (currentQuestion.type === 'proof') {
+        feedbackText = 'Incorrect. For proof questions, make sure your answer includes key concepts about even numbers and divisibility by 2.';
+      } else if (currentQuestion.type === 'graph') {
+        feedbackText = 'Incorrect. Please plot the correct points on the graph.';
+      } else {
+        feedbackText = 'Incorrect.';
+      }
+    }
+    setFeedback(feedbackText);
 
     setTimeout(() => {
       // Calculate Wilson interval
@@ -950,7 +992,7 @@ export default function AssessmentEntry() {
                   {/* Show feedback in place of the button after submit */}
                   {locked && feedback && (
                     <div className={`mt-8 font-medium text-lg ${
-                      feedback === 'Correct!'
+                      feedback.startsWith('Correct!')
                         ? 'text-green-600'
                         : 'text-red-600'
                     }`}>
