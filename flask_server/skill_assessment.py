@@ -1,7 +1,7 @@
 from flask import request, jsonify, Blueprint
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
-from database import engine, Student, User_Login, User, DiagnosticProblem
+from database import engine, Student, User_Login, User, DiagnosticProblem, Tutor, TeacherConfig
 import random
 import bcrypt
 from openai import OpenAI
@@ -50,6 +50,120 @@ def difficulty_to_b(difficulty):
     return 0.0
 
 
+# Generate diagnostic questions for a given topic
+@assessment_bp.route('/skill_assessment/diagnostic_test', methods=['POST'])
+def diagnostic_test():
+    topic = request.json.get('topic')
+    grade = request.json.get('grade', 'K-12')
+    teacher_id = request.json.get('teacher_id')
+    student_id = request.json.get('student_id')
+    # get teacher config
+    with Session(engine) as session:
+        teacher_config = session.query(TeacherConfig).filter_by(teacher_id=teacher_id).first()
+        config = json.loads(teacher_config.config_json) if teacher_config else {}
+
+    # Read the quantity set by the teacher, or use the default value of 10
+    try:
+        num_questions = int(config.get("num_questions", 10))
+    except ValueError:
+        return jsonify({"error": "'num_questions' must be an integer."}), 400
+    if not (5 <= num_questions <= 30):
+        return jsonify({"error": "'num_questions' must be between 5 and 30."}), 400
+
+    prompt = f"""
+        You are a math expert. Generate exactly {num_questions} diagnostic questions for topic \"{topic}\" at grade {grade} level.
+
+        The questions must include a mix of all four types:
+        - "mcq" (multiple choice)
+        - "numeric" (short numeric answer)
+        - "proof" (student writes a short logical justification)
+        - "graph" (student interprets or plots a graph)
+
+        Distribute the types reasonably across the {num_questions}. Each question must be tagged with one of those types.
+
+        Each question must be a JSON object and include:
+        - "subtopic": a full skill path of topic → sub-topic → sub-sub-topic
+        - "question": the question text
+        - "type": one of "mcq", "numeric", "proof", or "graph"
+        - "difficulty": "easy", "medium", or "hard"
+        - "correct_answer": the correct answer
+        - "options": list of 3-5 choices (required for mcq only; correct_answer must be in options)
+
+        Respond ONLY with strict JSON. DO NOT use code blocks (no ```), markdown, or explanations. 
+        Example format:
+        {{
+            "questions": [
+                {{
+                "subtopic": "Addition > Whole Numbers > Basic Addition",
+                "question": "What is 2 + 2?",
+                "type": "mcq",
+                "difficulty": "easy",
+                "correct_answer": "4",
+                "options": ["3", "4", "5"]
+                }}
+            ]
+        }}
+        """
+
+    try:
+        response = ask_gpt(prompt, max_tokens=2000)
+        question_data = json.loads(response)
+        questions = question_data.get("questions", [])
+
+        if not isinstance(questions, list):
+            return jsonify({"error": "'questions' must be a list"}), 400
+
+        # Check if the response appears to be valid JSON
+        if not response.strip().startswith("{"):
+            print("GPT returned invalid JSON:\n", response)
+            return jsonify({"error": "GPT did not return valid JSON", "raw": response}), 500
+
+        with Session(engine) as session:
+            for item in questions:
+                subtopic = item.get("subtopic")
+                if not subtopic or not item.get("question"):
+                    continue  # skip incomplete data
+
+                # Enforce options check only for MCQ
+                if item.get("type") == "mcq":
+                    opts = item.get("options")
+                    if len(opts) < 2:
+                        print(f"Skipping invalid MCQ (missing or insufficient options): {item}")
+                        continue
+                    if item.get("correct_answer") not in opts:
+                        print(f"Skipping MCQ (correct_answer not in options): {item}")
+                        continue
+
+                db_entry = DiagnosticProblem(
+                    student_id=int(student_id),
+                    subtopic=subtopic,
+                    question=item['question'],
+                    difficulty=item.get('difficulty', 'medium'),
+                    type=item.get('type', 'numeric'),
+                    options=json.dumps(item.get('options')) if item.get('options') else None,
+                    correct_answer=item.get('correct_answer'),
+                    is_served=False
+                )
+                session.add(db_entry)
+            session.commit()
+
+        return jsonify({"status": "saved", 
+                        "count": sum(len(v) for v in question_data.values()),
+                        "questions": questions})
+
+    except json.JSONDecodeError as je:
+        print("JSON decoding failed:", str(je))
+        return jsonify({
+            "error": "Failed to parse GPT response as JSON",
+            "details": str(je),
+            "raw": response
+        }), 500
+
+    except Exception as e:
+        print("Unhandled exception:", str(e))
+        return jsonify({"error": str(e)}), 500
+
+
 # This route selects a random question from the diagnostic set
 @assessment_bp.route('/skill_assessment/pick_problem', methods=['POST'])
 def pick_problem():
@@ -86,7 +200,7 @@ def pick_problem():
 
 
 # This route evaluates a student's answer using GPT and returns 'Correct' or 'Incorrect'
-@assessment_bp.route('/skill_assessment/submit_solution', methods=['POST'])
+@assessment_bp.route('/skill_assessment/submit_solution_for_proof', methods=['POST'])
 def submit_solution():
     problem_id = request.json.get("problem_id")
     student_answer = request.json.get("answer")
@@ -140,7 +254,6 @@ Student's Proof: {student_answer}
         return jsonify({"error": str(e)}), 500
 
 
-
 # This route generates a study plan based on the student's mastery report
 @assessment_bp.route('/skill_assessment/study_plan', methods=['POST'])
 def study_plan():
@@ -154,6 +267,7 @@ generate a detailed study plan to help the student improve to full mastery.
         return jsonify({"study_plan": plan})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 # This route accepts confidence feedback input from students (placeholder)
 @assessment_bp.route('/skill_assessment/confidence_feedback', methods=['POST'])
@@ -250,6 +364,11 @@ def rate_diagnostic():
     topic_stats = {}
     all_thetas = []
 
+    if answers is None or not isinstance(answers, list):
+        return jsonify({"error": "The request body is missing or has an incorrect format for the 'answers' list"}), 400
+    if student_id is None:
+        return jsonify({"error": "The request body is missing the 'student_id' field"}), 400
+
     for item in answers:
         subtopic = item.get('subtopic')
         correct = 1 if item.get('correct') else 0
@@ -297,109 +416,87 @@ def rate_diagnostic():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# Teacher config cache
-teacher_configs = {}
 
 # Endpoint to receive teacher configuration (FR-20-7)
 @assessment_bp.route('/skill_assessment/teacher_config', methods=['POST'])
 def teacher_config():
     config = request.json
     teacher_id = config.get('teacher_id')
-    if teacher_id:
-        teacher_configs[teacher_id] = config
-    return jsonify({"status": "saved", "config": config})
 
-
-# Generate diagnostic questions for a given topic
-@assessment_bp.route('/skill_assessment/diagnostic_test', methods=['POST'])
-def diagnostic_test():
-    topic = request.json.get('topic')
-    grade = request.json.get('grade', 'K-12')
-    teacher_id = request.json.get('teacher_id')
-    student_id = request.json.get('student_id')
-    config = teacher_configs.get(teacher_id, {})
-
-    prompt = f"""
-        You are a math expert. Generate diagnostic questions for topic \"{topic}\" at grade {grade} level.
-        Each question must include:
-        - difficulty ("easy", "medium", or "hard")
-        - type (must be one of: "mcq", "numeric", "proof", "graph")
-        - correct_answer
-        - options (mandatory for MCQ; 3 to 5 well-formed choices; correct_answer must be one of them)
-
-        Ensure at least one question of type "proof" and one of type "graph".
-        Respond ONLY with strict JSON. DO NOT use code blocks (no ```), markdown, or explanations. 
-        All MCQ questions must include:
-        - A key "options" with 3–5 choices (as a list of strings)
-        - The "correct_answer" must be one of the "options"
-
-        Format:
-        {{
-        "Subtopic Name": [
-            {{
-            "difficulty": "...",
-            "type": "...",
-            "question": "...",
-            "correct_answer": "...",
-            "options": ["..."]
-            }},
-            ...
-        ]
-        }}
-        
-    """
+    if not teacher_id:
+        return jsonify({"error": "missing teacher_id"}), 400
 
     try:
-        response = ask_gpt(prompt, max_tokens=2000)
-
-        # Check if the response appears to be valid JSON
-        if not response.strip().startswith("{"):
-            print("GPT returned invalid JSON:\n", response)
-            return jsonify({"error": "GPT did not return valid JSON", "raw": response}), 500
-
-        # Attempt to parse JSON
-        question_data = json.loads(response)
-
         with Session(engine) as session:
-            for subtopic, questions in question_data.items():
-                for item in questions:
-                    qtype = item.get("type", "numeric")
-                    # Enforce options check only for MCQ
-                    if qtype == "mcq":
-                        opts = item.get("options")
-                        if len(opts) < 2:
-                            print(f"Skipping invalid MCQ (missing or insufficient options): {item}")
-                            continue
-                        if item.get("correct_answer") not in opts:
-                            print(f"Skipping MCQ (correct_answer not in options): {item}")
-                            continue
+            # Check if this teacher exists
+            teacher = session.get(Tutor, teacher_id)
+            if not teacher:
+                return jsonify({"error": "teacher_id not exist or User type isn't Tutor"}), 404
 
-                    db_entry = DiagnosticProblem(
-                        student_id=int(student_id),
-                        subtopic=subtopic,
-                        question=item['question'],
-                        difficulty=item.get('difficulty', 'medium'),
-                        type=item.get('type', 'numeric'),
-                        options=json.dumps(item.get('options')) if item.get('options') else None,
-                        correct_answer=item.get('correct_answer'),
-                        is_served=False
-                    )
-                    session.add(db_entry)
+            # Check if there is already a configuration
+            existing_config = session.query(TeacherConfig).filter_by(teacher_id=teacher_id).first()
+            if existing_config:
+                existing_config.config_json = json.dumps(config)
+            else:
+                new_config = TeacherConfig(teacher_id=teacher_id, config_json=json.dumps(config))
+                session.add(new_config)
+
             session.commit()
-
-        return jsonify({"status": "saved", "count": sum(len(v) for v in question_data.values())})
-
-    except json.JSONDecodeError as je:
-        print("JSON decoding failed:", str(je))
-        return jsonify({
-            "error": "Failed to parse GPT response as JSON",
-            "details": str(je),
-            "raw": response
-        }), 500
-
+            return jsonify({"status": "saved", "config": config})
     except Exception as e:
-        print("Unhandled exception:", str(e))
         return jsonify({"error": str(e)}), 500
+
+
+# skip the assessment (FR20-13)
+@assessment_bp.route('/skill_assessment/skip_assessment', methods=['POST'])
+def skip_assessment():
+    student_id = request.json.get("student_id")
+    if not student_id:
+        return jsonify({"error": "student_id is required"}), 400
+
+    with Session(engine) as session:
+        student = session.get(Student, student_id)
+        if not student:
+            return jsonify({"error": "Student not found"}), 404
+        
+        # Record the skipping status (you can add the "skip_assessment" field in the "Student" table)
+        student.progress_percentage = json.dumps({"status": "skipped"})
+        session.commit()
+
+    return jsonify({
+        "status": "skipped",
+        "message": "Student chose to skip the assessment and can return later."
+    })
+
+# start or resume the assessment (FR20-13)
+@assessment_bp.route('/skill_assessment/start_or_resume', methods=['POST'])
+def start_or_resume():
+    student_id = request.json.get("student_id")
+    if not student_id:
+        return jsonify({"error": "student_id is required"}), 400
+
+    with Session(engine) as session:
+        problems = session.query(DiagnosticProblem)\
+            .filter_by(student_id=student_id).all()
+
+        unserved = [p for p in problems if not p.is_served]
+
+        if not problems:
+            return jsonify({
+                "status": "not_started",
+                "message": "No assessment found. Please generate one."
+            })
+        elif unserved:
+            return jsonify({
+                "status": "in_progress",
+                "message": "Assessment in progress. You can resume.",
+                "remaining_questions": len(unserved)
+            })
+        else:
+            return jsonify({
+                "status": "completed",
+                "message": "Assessment has already been completed or all questions served."
+            })
 
 
 # list all the problems for testing
@@ -412,6 +509,7 @@ def list_problems():
             "id": p.id,
             "type": p.type,
             "difficulty": p.difficulty,
+            "subtopic" : p.subtopic,
             "question": p.question,
             "options": json.loads(p.options) if p.options else None,
             "correct_answer": p.correct_answer
