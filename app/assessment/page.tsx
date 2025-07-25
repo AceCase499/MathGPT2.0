@@ -82,14 +82,17 @@ async function fetchMicroLecture(strengths: string[], gaps: string[]): Promise<s
   );
 }
 
-async function fetchDiagnosticQuestions(topic: string, grade: string = 'K-12', numQuestions: number = 3) {
-  console.log('[fetchDiagnosticQuestions] topic:', topic, 'grade:', grade, 'numQuestions:', numQuestions);
+async function fetchDiagnosticQuestions(topic: string, grade: string = 'K-12', numQuestions: number = 3, student_id?: number) {
+  console.log('[fetchDiagnosticQuestions] topic:', topic, 'grade:', grade, 'numQuestions:', numQuestions, 'student_id:', student_id);
   try {
-    const res = await fetch('https://mathgptdevs25.pythonanywhere.com/skill_assessment/diagnostic_test', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ topic, grade, numQuestions }),
-    });
+    const res = await fetch(
+      `https://mathgptdevs25.pythonanywhere.com/skill_assessment/pick_problem?ts=${Date.now()}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic, grade, numQuestions, student_id }),
+      }
+    );
     console.log('[fetchDiagnosticQuestions] fetch status:', res.status);
     const text = await res.text();
     console.log('[fetchDiagnosticQuestions] raw text:', text);
@@ -400,22 +403,21 @@ export default function AssessmentEntry() {
 
     setLoading(true);
     try {
-      const diagnostic = await fetchDiagnosticQuestions(topic, grade, Number(settings.numQuestions) || 3);
+      const diagnostic = await fetchDiagnosticQuestions(topic, grade, Number(settings.numQuestions) || 3, user?.id);
       const qList = [];
       let id = 1;
-      Object.entries(diagnostic).forEach(([subtopic, arr]) => {
-        if (Array.isArray(arr)) {
-          arr.forEach((q) => {
+      Object.entries(diagnostic).forEach(([subtopic, arrOrObj]) => {
+        if (Array.isArray(arrOrObj)) {
+          arrOrObj.forEach((q) => {
             if (q && q.question) {
               qList.push({
                 id: id++,
                 text: q.question,
                 type: typeof q.type === 'string' && ['mcq', 'numeric', 'proof', 'graph'].includes(q.type)
-  ? q.type
-  : q.options
-    ? 'mcq'
-    : 'numeric',
-
+                  ? q.type
+                  : q.options
+                    ? 'mcq'
+                    : 'numeric',
                 topic: subtopic,
                 difficulty: q.difficulty,
                 options: q.options,
@@ -423,6 +425,23 @@ export default function AssessmentEntry() {
                 answer: q.answer
               });
             }
+          });
+        } else if (arrOrObj && typeof arrOrObj === 'object' && (arrOrObj as any).question) {
+          // Support single question object
+          const q = arrOrObj as any;
+          qList.push({
+            id: id++,
+            text: q.question,
+            type: typeof q.type === 'string' && ['mcq', 'numeric', 'proof', 'graph'].includes(q.type)
+              ? q.type
+              : q.options
+                ? 'mcq'
+                : 'numeric',
+            topic: subtopic,
+            difficulty: q.difficulty,
+            options: q.options,
+            correctIndex: q.correctIndex,
+            answer: q.answer
           });
         }
       });
