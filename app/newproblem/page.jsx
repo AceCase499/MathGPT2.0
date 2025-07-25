@@ -456,7 +456,7 @@
                 <label><strong>Lecture Session:</strong></label>
                 <select value={lectureSessionId} onChange={(e) => setLectureSessionId(e.target.id)} style={inputStyle}>
                   {LectureArchive.map((lec, index) => (
-                    <option id={lec.lecture_id.toString()} value={[lec.topic, lec.subtopic]}>{lec.title}</option>
+                    <option key={lec.lecture_id.toString()} value={[lec.topic, lec.subtopic]}>{lec.title}</option>
                   ))}
                 </select>
               </>

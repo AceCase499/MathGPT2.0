@@ -1,8 +1,11 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+
 
 export default function ProfilePage() {
+  const router = useRouter();
   const [profile, setProfile] = useState({
     avatar: '',
     fullName: '',
@@ -90,7 +93,10 @@ export default function ProfilePage() {
       return;
     }
 
-    try {
+    alert("Your request was sent")
+    router.push("/welcome")
+
+    /* try {
       const response = await fetch('https://example.com/api/update_profile', {
         method: 'POST',
         headers: {
@@ -106,7 +112,7 @@ export default function ProfilePage() {
       alert('Profile saved successfully!');
     } catch (err) {
       alert('Failed to save profile: ' + err.message);
-    }
+    } */
   };
 
   function validate() {
@@ -308,8 +314,8 @@ export default function ProfilePage() {
             <h3 className="text-lg font-semibold text-gray-700 mb-2">Personalization</h3>
             <textarea
               name="bio"
-              placeholder="e.g. I love math puzzles!"
-              rows={3}
+              placeholder={"Tell us about yourself.\nWhat can we do to help you learn math?"}
+              rows={5}
               className="w-full p-3 border rounded focus:ring focus:ring-gray-200 resize-y"
               value={profile.bio}
               onChange={handleChange}
@@ -318,7 +324,7 @@ export default function ProfilePage() {
               <div className="flex flex-col">
                 <input
                   name="learningStyle"
-                  placeholder="e.g. visual"
+                  placeholder="Your Learning Style"
                   className={`p-3 border rounded focus:ring focus:ring-gray-200 ${errors.learningStyle ? 'border-red-500' : ''}`}
                   value={profile.learningStyle}
                   onChange={handleChange}
@@ -328,7 +334,7 @@ export default function ProfilePage() {
               <div className="flex flex-col">
                 <input
                   name="learningNeeds"
-                  placeholder="e.g. step-by-step"
+                  placeholder="Needs/Accomodations"
                   className={`p-3 border rounded focus:ring focus:ring-gray-200 ${errors.learningNeeds ? 'border-red-500' : ''}`}
                   value={profile.learningNeeds}
                   onChange={handleChange}
@@ -338,7 +344,7 @@ export default function ProfilePage() {
               <div className="flex flex-col">
                 <input
                   name="interests"
-                  placeholder="e.g. robotics"
+                  placeholder="Your Interests"
                   className={`p-3 border rounded focus:ring focus:ring-gray-200 ${errors.interests ? 'border-red-500' : ''}`}
                   value={profile.interests}
                   onChange={handleChange}
@@ -348,7 +354,7 @@ export default function ProfilePage() {
               <div className="flex flex-col">
                 <input
                   name="dreamJob"
-                  placeholder="e.g. engineer"
+                  placeholder="Your Dream Job"
                   className={`p-3 border rounded focus:ring focus:ring-gray-200 ${errors.dreamJob ? 'border-red-500' : ''}`}
                   value={profile.dreamJob}
                   onChange={handleChange}

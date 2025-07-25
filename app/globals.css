@@ -84,3 +84,24 @@ body {
         opacity: 1;
     }
   }
+
+  .MenuOuter {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    width: 50%;
+    height: 50%;
+    transform: translate(-50%, -50%);
+  }
+  .MenuInner {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    width: 100%;
+    height: 85%;
+    transform: translate(-50%, -50%);
+    border-width: 4px;
+    background-color: rgba(0, 0, 0, 0.35);
+    /* background-color: rgb(174, 0, 0); */
+    border-radius: 0.5rem /* 8px */;
+  }

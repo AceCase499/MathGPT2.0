@@ -24,14 +24,9 @@ import { useRouter } from 'next/navigation';
 export default function jsChat(){
   const { user, storeEquation, equation } = useContext(AuthContext) as any;
   const router = useRouter();
-  useEffect(() => {
-    if (!user) {
-      router.replace('/');
-    } else {
-      //alert(user.id+" "+user.username)
-    }
-  }, [user, router]);
+
   const [InputText, setInputText] = useState('')
+  const [SearchText, setSearchText] = useState('')
   const [currentBotResponse, setCurrentBotResponse] = useState(''); // Temporary storage for streaming response
   const [InpEnabled, ttginp] = useState(true) //true = enabled, false = disabled
   const [Topic, setTopic] = useState('')
@@ -39,9 +34,12 @@ export default function jsChat(){
   const [LectureStart, tggLectureStart] = useState(false)
   const [MathEquation, setMathEquation] = useState("")
   const [updating, tggUpdating] = useState(false)
-  //const [ws, setWs] = useState(null);
+  const [openSearch, ttgSearch] = useState(false);
   const [currentLectureID, setCurrentLectureID] = useState(0)
   const [isCopied, setIsCopied] = useState(false);
+  const [vizCounter, setVizCounter] = useState(0)
+  const [audioCounter, setAudCounter] = useState(0)
+  const [txtCounter, setTxtCounter] = useState(0)
   const markdownTest = `
 The product of matrices is:
 $$
@@ -55,35 +53,82 @@ $$
   const [transcript, setTranscript] = useState('');
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
+  const mathTopics = [
+  {Topic: "Algebra", 
+    Subtopics: [
+    "Simplifying expressions",
+    "Solving linear equations",
+    "Distributive property",
+    "Evaluating expressions",
+    "Graphing lines",
+    "Slope-intercept form (y=mx+b)",
+    "Solving inequalities",
+    "Systems of linear inequalities",
+    "Factoring quadratics",
+    "Quadratic formula",
+    "Graphing parabolas",
+    "Completing the square",
+  ]},
+  {Topic: "Geometry", 
+    Subtopics: [
+    "Types of angles (acute, obtuse, right)",
+    "Triangle congruence (SSS, SAS)",
+    "Pythagorean theorem",
+    "Similar triangles",
+    "Parallel lines & transversals",
+    "Properties of quadrilaterals",
+    "Polygon interior angles",
+    "Perimeter calculations",
+    "Diagonals in polygons",
+    "Circle theorems",
+    "Arc length & sector area",
+    "Chord properties",
+    "Equations of circles",
+  ]},
+  {Topic: "Calculus",
+    Subtopics: [
+    "Power rule",
+    "Product/quotient rule",
+    "Chain rule",
+    "Implicit differentiation",
+    "Tangent lines",
+    "Optimization problems",
+    "Related rates",
+    "Curve sketching",
+    "Substitution method",
+    "Definite integrals",
+    "Area under curves",
+    "Fundamental Theorem of Calculus",
+  ]},
+  {Topic: "Statistics",
+    Subtopics: [
+    "Sample spaces",
+    "Addition/multiplication rules",
+    "Independent vs. dependent events",
+    "Conditional probability",
+    "Binomial distribution",
+    "Normal distribution (z-scores)",
+    "Expected value",
+    "Poisson distribution",
+    "Null/alternative hypotheses",
+    "p-values",
+    "t-tests",
+    "Type I/II errors",
+  ]},
+];
+  const [queryResults, setQueryResults] = useState([{Topic: "abc", Subtopics: ["x","y","z"]}])
 
     useEffect(() => {
       if (!user){
-        router.push("/")
+        router.replace("/")
       } else {
         loadLectureList()
       }
-    }, []); // The empty array ensures this effect runs only once on mount
+    }, [user, router]); // The empty array ensures this effect runs only once on mount
 
-
-    useEffect(() => {
-    const handleBeforeUnload = (event) => {
-      // Perform actions here before the tab is closed or navigated away
-      alert('User is attempting to close the tab or navigate away.');
-      // For example, you could send an API call to log out the user:
-      // fetch('/api/logout', { method: 'POST' });
-
-      // To prompt the user with a confirmation message (browser-dependent):
-      // event.preventDefault();
-      // event.returnValue = ''; // Required for some browsers to show the prompt
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-
-    // Cleanup function to remove the event listener when the component unmounts
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-    };
-  }, []); // Empty dependency array ensures this runs only once on mount
+    useEffect(()=>{
+      searchMathTopics(SearchText)
+    }, [SearchText])
 
 
   const chatContainer = useRef<HTMLDivElement>(null) //sets up a new chatContainer that is used in the second approach
@@ -142,18 +187,53 @@ $$
     }
   }
 
+  function searchMathTopics(inp) {
+  const query = inp.toLowerCase().trim();
+  if (query === "") return;
+
+  // First: search subtopics
+  const subtopicMatches = mathTopics
+    .map(({ Topic, Subtopics }) => {
+      const matchingSubtopics = Subtopics.filter(sub =>
+        sub.toLowerCase().includes(query)
+      );
+      return matchingSubtopics.length > 0 ? { Topic, Subtopics: matchingSubtopics } : null;
+    })
+    .filter(Boolean);
+
+  if (subtopicMatches.length > 0) {
+    setQueryResults(subtopicMatches);
+    return;
+  }
+
+  // Second: fallback to matching topics by name
+  const topicMatches = mathTopics
+    .filter(({ Topic }) => Topic.toLowerCase().includes(query));
+
+  if (topicMatches.length > 0) {
+    setQueryResults(topicMatches); // This already includes Subtopics
+  } else {
+    setQueryResults([
+      {
+        Topic: "No Results",
+        Subtopics: ["Try searching something else"],
+      },
+    ]);
+  }
+}
+
    const startLecture = async (e: React.FormEvent) => {
     e.preventDefault();
     ttginp(false);
     //alert(Topic+" "+user.id)
 
-    if (!Topic.trim()) {
-      alert("Please enter a math topic by click the text that reads: 'Enter a Math Topic Here'");
+    if (!Topic.trim() || !Subtopic.trim()){
+      alert("Please enter a math topic and subtopic by clicking the button on top of the page");
       ttginp(true);
       return;
     }
     const form = new FormData();
-    Object.entries({topic: Topic, student_id: user?.id}).forEach(([key, value]) => {
+    Object.entries({topic: Topic, subtopic: Subtopic, student_id: user?.id}).forEach(([key, value]) => {
       form.append(key, value);
     });
 
@@ -167,7 +247,7 @@ $$
     }
     const data = await response.json();
     setCurrentLectureID(data.lecture_id)
-    setChatStream(prev => [...prev, { sender: "ai", message: data.lecture }]);
+    loadSingleLecture(currentLectureID, Topic, Subtopic)
     scroll()
     tggLectureStart(true); // Enable "Continue Lecture" button
     ttginp(true);
@@ -340,12 +420,6 @@ $$
     setLectureArchive(data)
   }
 
-  function renderUserInput(){
-    return(<ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
-                  {InputText}
-                </ReactMarkdown>)
-  }
-
   async function TTS(copyText){
     setAudioUrl(null);
     try {
@@ -416,6 +490,11 @@ $$
     setInputText(data.text || 'Transcription failed.');
   };
 
+  function chosenTopic (tpc, stpc){
+    setTopic(tpc)
+    setSubtopic(stpc)
+  }
+
   return (
     <div>
       <NavigationBar/>
@@ -483,7 +562,23 @@ $$
       <div className="splitmain right text-lg">
         {/* This div holds the right panel */}
           {/* <button onClick={()=> alert(user?.id)}>Try Me</button> */}
-          {!Topic ? (
+          <button onClick={()=>ttgSearch(!openSearch)}>Select a Math Topic</button>
+          {openSearch == true &&
+            <div className='text-2xl w-[50%]'>
+              <div className='p-20'>
+                <input value={SearchText} placeholder='Search for a Math Topic' onChange={e => setSearchText(e.target.value)}/>
+                {SearchText.trim() !== "" && queryResults.map((obj, index) => (
+                  <div key={index}>
+                    <p className="font-bold mt-4">{obj.Topic}</p>
+                    <div style={{ height: 2, backgroundColor: "gray", marginBottom: 8 }}></div>
+                    {obj.Subtopics.map((sub, subIndex) => (
+                      <p onClick={()=>chosenTopic(obj.Topic, sub)} className='cursor-pointer hover:bg-indigo-300' key={subIndex}>{sub}</p>
+                    ))}
+                  </div>
+                ))}
+              </div>
+          </div>}
+          {/* {!Topic ? (
             <button className="mx-auto w-full py-1 cursor-pointer text-xl font-extrabold underline underline-offset-8" onClick={setNewTopic}>
               Enter a Math Topic Here
             </button>
@@ -503,7 +598,7 @@ $$
               {Subtopic}              
               <svg onClick={setNewSubtopic} xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="cursor-pointer lucide lucide-pencil-line-icon lucide-pencil-line"><path d="M12 20h9"/><path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z"/><path d="m15 5 3 3"/></svg>
             </p>
-          )}
+          )} */}
         <center>
           <div ref={chatContainer} style={{boxShadow: "0 0 30px rgb(160, 160, 160)", flex: 1, overflowY: "scroll", height: "55vh"}}> {/* //This div streams the response in real time, couldn't finish it in time */}
             {ChatStream.map((chat, index) => (
@@ -535,6 +630,9 @@ $$
                     Rename This Lecture
                   </button>
                   <button onClick={()=> router.refresh()} className="cursor-pointer rounded-lg border sm:block bg-white p-1 hover:bg-zinc-200">
+                    Request Image/Graph
+                  </button>
+                  <button onClick={()=> router.refresh()} className="cursor-pointer rounded-lg border sm:block bg-white p-1 hover:bg-zinc-200">
                     New Lecture
                   </button>
                   {/* <button style={{borderColor: "green"}} onClick={markComplete} className="cursor-pointer rounded-lg border sm:block bg-white p-1 hover:bg-zinc-200">
@@ -554,22 +652,6 @@ $$
               </div>
             )}        
             <form onSubmit={continueLecture}>
-              {/* <input
-                type="text"
-                id="messageinp"
-                value={InputText}
-                disabled={!InpEnabled}
-                placeholder="Ask a Question..."
-                onChange={
-                  e => setInputText(e.target.value) 
-                }
-                className={InpEnabled ? enabledcss : disabledcss}
-              /> */}
-              <textarea>
-                <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
-                  {InputText}
-                </ReactMarkdown>
-              </textarea>
               <div className='flex justify-center'>
                 <textarea
                 style={{overflowY: "scroll",resize: "block", }}
@@ -581,13 +663,16 @@ $$
                 }
                 className={InpEnabled ? inputBar+enabledcss : inputBar+disabledcss}
                 />
-                <div onClick={recording ? stopRecording : startRecording} style={{width:60, height:60, borderWidth: 1, borderColor: "black", borderRadius: 9999, cursor:"pointer"}} className='hover:bg-zinc-200'>
+                <button type='submit' style={{width:60, height:60, borderWidth: 1, borderColor: "black", borderRadius: 9999, cursor:"pointer"}} className='hover:bg-zinc-200'>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="45" height="45" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="centerThis lucide lucide-send-horizontal-icon lucide-send-horizontal"><path d="M3.714 3.048a.498.498 0 0 0-.683.627l2.843 7.627a2 2 0 0 1 0 1.396l-2.842 7.627a.498.498 0 0 0 .682.627l18-8.5a.5.5 0 0 0 0-.904z"/><path d="M6 12h16"/></svg>
+                </button>
+                {/* <div onClick={recording ? stopRecording : startRecording} style={{width:60, height:60, borderWidth: 1, borderColor: "black", borderRadius: 9999, cursor:"pointer"}} className='hover:bg-zinc-200'>
                 {recording ? (
-                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-circle-stop-icon lucide-circle-stop"><circle cx="12" cy="12" r="10"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="45" height="45" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-circle-stop-icon lucide-circle-stop"><circle cx="12" cy="12" r="10"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
                 ) : (
                   <svg xmlns="http://www.w3.org/2000/svg" width="45" height="45" viewBox="0 0 24 24" fill="none" stroke="#000000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="content-center lucide lucide-mic-icon lucide-mic"><path d="M12 19v3"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><rect x="9" y="2" width="6" height="13" rx="3"/></svg>
                 )}
-                </div>
+                </div> */}
               </div>
             </form>
           </div>
