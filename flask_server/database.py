@@ -88,7 +88,6 @@ class Student(User):
     staring_assessment: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     current_subject: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     progress_percentage: Mapped[Optional[float]] = mapped_column(String, nullable=True)
-    bio: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     # Relationship to link Student with Tutor
     tutor: Mapped[Optional["Tutor"]] = relationship(
@@ -178,7 +177,19 @@ class DiagnosticProblem(Base):
 
     def __repr__(self):
         return f"DiagnosticProblem(id={self.id}, subtopic={self.subtopic})"
-        
+
+class TeacherConfig(Base):
+    __tablename__ = "teacher_config"
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    teacher_id: Mapped[int] = mapped_column(ForeignKey("tutor.id"), unique=True, nullable=False)
+    config_json: Mapped[str] = mapped_column(Text, nullable=False)
+
+    teacher: Mapped["Tutor"] = relationship(backref="config")
+
+    def __repr__(self):
+        return f"TeacherConfig(teacher_id={self.teacher_id})"
+
+
 Base.metadata.create_all(engine)
 engine.dispose()
 
