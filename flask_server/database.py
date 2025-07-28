@@ -51,12 +51,6 @@ class User(Base):
 
     def __repr__(self):
         return f"User(id={self.id}, name={self.username})"
-    
-    courses_taught: Mapped[List[Course]] = relationship(
-        "Course",
-        back_populates="teacher",
-        foreign_keys="[Course.teacher_id]"
-    )
 
 # Side class that corresponds to User that includes login information
 class User_Login(Base):
@@ -120,7 +114,7 @@ class Student(User):
     )
 
     # back to the Course
-    course: Mapped[Optional[Course]] = relationship(
+    course: Mapped[Optional["Course"]] = relationship(
         "Course",
         back_populates="students"
     )
@@ -233,146 +227,146 @@ class Course(Base):
 Base.metadata.create_all(engine)
 engine.dispose()
 
-# Homepage
-@app.route('/')
-def home():
-    return render_template('home.html')
+# # Homepage
+# @app.route('/')
+# def home():
+#     return render_template('home.html')
 
-# Create User Code
-@app.route('/create_user', methods=['GET', 'POST'])
-def create_user():
-    if request.method == 'POST':
-        try:
-            user_type = request.form.get('user_type', '').strip().lower()
-            username = request.form.get('username')
+# # Create User Code
+# @app.route('/create_user', methods=['GET', 'POST'])
+# def create_user():
+#     if request.method == 'POST':
+#         try:
+#             user_type = request.form.get('user_type', '').strip().lower()
+#             username = request.form.get('username')
 
-            with Session(engine) as session:
-                # Check for duplicate username
-                if session.query(User_Login).filter_by(username=username).first():
-                    return "Username already exists. Please choose a different username."
+#             with Session(engine) as session:
+#                 # Check for duplicate username
+#                 if session.query(User_Login).filter_by(username=username).first():
+#                     return "Username already exists. Please choose a different username."
 
-                # Choose correct subclass
-                if user_type == 'student':
-                    user = Student(
-                        user_type="Student",
-                        name=request.form.get('name'),
-                        email = request.form.get('email'),
-                        district=request.form.get('district'),
-                        age=request.form.get('age'),
-                        teacher_id=None,
-                        tutor_id=None,
-                        grade=1,
-                        staring_assessment=None,
-                        current_subject=None,
-                        progress_percentage=None
-                    )
-                elif user_type == 'tutor':
-                    user = Tutor(
-                        user_type="Tutor",
-                        email = request.form.get('email'),
-                        name=request.form.get('name'),
-                        district=request.form.get('district'),
-                        age=request.form.get('age'),
-                        subjects=request.form.get('subjects')
-                    )
-                else:
-                    user = User(
-                        user_type="User",
-                        email = request.form.get('email'),
-                        name=request.form.get('name'),
-                        district=request.form.get('district'),
-                        age=request.form.get('age')
-                    )
+#                 # Choose correct subclass
+#                 if user_type == 'student':
+#                     user = Student(
+#                         user_type="Student",
+#                         name=request.form.get('name'),
+#                         email = request.form.get('email'),
+#                         district=request.form.get('district'),
+#                         age=request.form.get('age'),
+#                         teacher_id=None,
+#                         tutor_id=None,
+#                         grade=1,
+#                         staring_assessment=None,
+#                         current_subject=None,
+#                         progress_percentage=None
+#                     )
+#                 elif user_type == 'tutor':
+#                     user = Tutor(
+#                         user_type="Tutor",
+#                         email = request.form.get('email'),
+#                         name=request.form.get('name'),
+#                         district=request.form.get('district'),
+#                         age=request.form.get('age'),
+#                         subjects=request.form.get('subjects')
+#                     )
+#                 else:
+#                     user = User(
+#                         user_type="User",
+#                         email = request.form.get('email'),
+#                         name=request.form.get('name'),
+#                         district=request.form.get('district'),
+#                         age=request.form.get('age')
+#                     )
 
-                session.add(user)
-                session.flush()  # assigns user.id
+#                 session.add(user)
+#                 session.flush()  # assigns user.id
 
-                login_info = User_Login(
-                    id=user.id,
-                    username=username,
-                    password=request.form.get('password')
-                )
-                session.add(login_info)
-                session.commit()
+#                 login_info = User_Login(
+#                     id=user.id,
+#                     username=username,
+#                     password=request.form.get('password')
+#                 )
+#                 session.add(login_info)
+#                 session.commit()
 
-            return "User created successfully"
-        except Exception as e:
-            return f"Error: {str(e)}"
-    return "User created"
+#             return "User created successfully"
+#         except Exception as e:
+#             return f"Error: {str(e)}"
+#     return "User created"
 
-# Code for user login
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    if request.method == 'POST':
-        # Store the input variables
-        username = request.form.get('username')
-        password = request.form.get('password')
-        with Session(engine) as session:
-            # Query the database for the user with the given username and password
-            user_login = session.query(User_Login).filter_by(username=username, password=password).first()
-            if user_login:
-                # If the user exists, return a message (this will be changed to actually logging the user in)
-                return f"Login successful for user: {user_login.username} with ID: {user_login.id}"
-            else:
-                # If the user does not exist, return an error message
-                return "Invalid username or password"
-    # Sends user to login.html page
-    return render_template('login.html')
+# # Code for user login
+# @app.route('/login', methods=['GET', 'POST'])
+# def login():
+#     if request.method == 'POST':
+#         # Store the input variables
+#         username = request.form.get('username')
+#         password = request.form.get('password')
+#         with Session(engine) as session:
+#             # Query the database for the user with the given username and password
+#             user_login = session.query(User_Login).filter_by(username=username, password=password).first()
+#             if user_login:
+#                 # If the user exists, return a message (this will be changed to actually logging the user in)
+#                 return f"Login successful for user: {user_login.username} with ID: {user_login.id}"
+#             else:
+#                 # If the user does not exist, return an error message
+#                 return "Invalid username or password"
+#     # Sends user to login.html page
+#     return render_template('login.html')
 
-@app.route('/lecture_chat', methods=['POST'])
-def add_chat_message():
-    data = request.form
-    lecture_id = data.get('lecture_id')
-    sender = data.get('sender')  # "student" or "ai"
-    message = data.get('message')
+# @app.route('/lecture_chat', methods=['POST'])
+# def add_chat_message():
+#     data = request.form
+#     lecture_id = data.get('lecture_id')
+#     sender = data.get('sender')  # "student" or "ai"
+#     message = data.get('message')
 
-    if not message or sender not in ['student', 'ai']:
-        return "Invalid input", 400
+#     if not message or sender not in ['student', 'ai']:
+#         return "Invalid input", 400
 
-    with Session(engine) as session:
-        if not lecture_id:
-            student_id = data.get('student_id')  # must be provided in the form
-            if not student_id:
-                return "Missing student_id to create lecture", 400
+#     with Session(engine) as session:
+#         if not lecture_id:
+#             student_id = data.get('student_id')  # must be provided in the form
+#             if not student_id:
+#                 return "Missing student_id to create lecture", 400
 
-            new_lecture = Lectures(
-                student_id=int(student_id),
-                title="Untitled Chat Lecture",
-                topic="General",
-                subtopic="Chat Session",
-                content=""
-            )
-            session.add(new_lecture)
-            session.commit()
-            lecture_id = new_lecture.id
-        else:
-            lecture_id = int(lecture_id)
+#             new_lecture = Lectures(
+#                 student_id=int(student_id),
+#                 title="Untitled Chat Lecture",
+#                 topic="General",
+#                 subtopic="Chat Session",
+#                 content=""
+#             )
+#             session.add(new_lecture)
+#             session.commit()
+#             lecture_id = new_lecture.id
+#         else:
+#             lecture_id = int(lecture_id)
 
-        chat = LectureChat(
-            lecture_id=lecture_id,
-            sender=sender,
-            message=message,
-            timestamp=datetime.utcnow()
-        )
-        session.add(chat)
-        session.commit()
+#         chat = LectureChat(
+#             lecture_id=lecture_id,
+#             sender=sender,
+#             message=message,
+#             timestamp=datetime.utcnow()
+#         )
+#         session.add(chat)
+#         session.commit()
 
-    return f"Message stored in Lecture ID {lecture_id}"
+#     return f"Message stored in Lecture ID {lecture_id}"
 
-@app.route('/lecture_chat/<int:lecture_id>')
-def view_lecture_chat(lecture_id):
-    with Session(engine) as session:
-        messages = session.query(LectureChat).filter_by(lecture_id=lecture_id).order_by(LectureChat.timestamp).all()
-        return render_template("chat_view.html", messages=messages)
+# @app.route('/lecture_chat/<int:lecture_id>')
+# def view_lecture_chat(lecture_id):
+#     with Session(engine) as session:
+#         messages = session.query(LectureChat).filter_by(lecture_id=lecture_id).order_by(LectureChat.timestamp).all()
+#         return render_template("chat_view.html", messages=messages)
 
-@app.route('/lecture_chat_view', methods=['GET'])
-def redirect_to_chat():
-    lecture_id = request.args.get('lecture_id')
-    return redirect(f'/lecture_chat/{lecture_id}')
+# @app.route('/lecture_chat_view', methods=['GET'])
+# def redirect_to_chat():
+#     lecture_id = request.args.get('lecture_id')
+#     return redirect(f'/lecture_chat/{lecture_id}')
 
-@app.route('/chat_simulator')
-def chat_simulator():
-    return render_template('chat_simulator.html')
+# @app.route('/chat_simulator')
+# def chat_simulator():
+#     return render_template('chat_simulator.html')
 
 # Example code for chat_view.html
 """<h2>Lecture Chat</h2>
@@ -385,5 +379,5 @@ def chat_simulator():
 </ul>
 """
 
-if __name__ == '__main__':
-    app.run(debug=True)
+# if __name__ == '__main__':
+#     app.run(debug=True)
