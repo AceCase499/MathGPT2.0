@@ -189,6 +189,24 @@ class TeacherConfig(Base):
     def __repr__(self):
         return f"TeacherConfig(teacher_id={self.teacher_id})"
 
+class Courses(Base):
+    __tablename__ = "courses"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    teacher_id: Mapped[int] = mapped_column(ForeignKey("user.id"))
+    title: Mapped[str] = mapped_column(String(50), default="Untitled Course")
+    topic: Mapped[str] = mapped_column(String)
+    start_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    due_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+
+    teacher: Mapped["User"] = relationship(
+        back_populates="courses",
+        foreign_keys="Courses.user_id"
+    )
+
+    students: Mapped["Student"] = relationship(back_populates="courses")
+
+    def __repr__(self):
+        return f"Course(id={self.id}, title={self.title})"
 
 Base.metadata.create_all(engine)
 engine.dispose()
