@@ -51,6 +51,12 @@ class User(Base):
 
     def __repr__(self):
         return f"User(id={self.id}, name={self.username})"
+    
+    courses_taught: Mapped[List[Course]] = relationship(
+        "Course",
+        back_populates="teacher",
+        foreign_keys="[Course.teacher_id]"
+    )
 
 # Side class that corresponds to User that includes login information
 class User_Login(Base):
@@ -108,6 +114,16 @@ class Student(User):
     __mapper_args__ = {
         "polymorphic_identity": "Student",
     }
+
+    course_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("courses.id"), nullable=True
+    )
+
+    # back to the Course
+    course: Mapped[Optional[Course]] = relationship(
+        "Course",
+        back_populates="students"
+    )
 
     def __repr__(self):
         return f"Student(id={self.id}, username={self.username})"
@@ -189,21 +205,27 @@ class TeacherConfig(Base):
     def __repr__(self):
         return f"TeacherConfig(teacher_id={self.teacher_id})"
 
-class Courses(Base):
+class Course(Base):
     __tablename__ = "courses"
-    id: Mapped[int] = mapped_column(primary_key=True)
-    teacher_id: Mapped[int] = mapped_column(ForeignKey("user.id"))
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    teacher_id: Mapped[int] = mapped_column(ForeignKey("user.id"), nullable=False)
     title: Mapped[str] = mapped_column(String(50), default="Untitled Course")
-    topic: Mapped[str] = mapped_column(String)
+    topic: Mapped[str] = mapped_column(String, nullable=False)
     start_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    due_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    due_date:   Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
+    # back to the User who created this course
     teacher: Mapped["User"] = relationship(
-        back_populates="courses",
-        foreign_keys="Courses.user_id"
+        "User",
+        back_populates="courses_taught",
+        foreign_keys=[teacher_id]
     )
 
-    students: Mapped["Student"] = relationship(back_populates="courses")
+    # one-to-many → many students
+    students: Mapped[List["Student"]] = relationship(
+        "Student",
+        back_populates="course"
+    )
 
     def __repr__(self):
         return f"Course(id={self.id}, title={self.title})"
