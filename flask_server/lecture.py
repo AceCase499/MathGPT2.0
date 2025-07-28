@@ -31,6 +31,7 @@ def start_lecture():
         if not student:
             return jsonify({'error':f'Student {student_id} not found'}), 404
         bio = student.bio or "No bio provided."
+        grade = student.grade or "No grade provided."
 
     # build a system prompt with the student’s bio
     system_msg = {
@@ -38,6 +39,7 @@ def start_lecture():
         "content": (
             f"This is a one-on-one math lecture for a student whose bio is:\n\n"
             f"{bio}\n\n"
+            f"Grade: {grade}\n\n"
             "Use that to personalize tone, pacing, and examples."
         )
     }
@@ -109,6 +111,7 @@ def followup():
         lec = session.get(Lectures, int(lecture_id))
         student = session.get(Student, lec.student_id)
         bio = student.bio or "No bio provided."
+        grade = student.grade or "No grade provided."
 
         # rehydrate the entire chat
         prev = session.query(LectureChat) \
@@ -119,6 +122,7 @@ def followup():
     messages = [
         {"role":"system", "content":(
             f"Student bio:\n{bio}\nUse it to personalize pacing & tone."
+            f"Grade: {grade}\n\n"
         )}
     ]
     for msg in prev:

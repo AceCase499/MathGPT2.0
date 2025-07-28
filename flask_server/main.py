@@ -23,7 +23,7 @@ from lecture import lecture_bp
 from problem import problem_bp
 from skill_assessment import assessment_bp
 import os
-from database import User, Student, Tutor, User_Login, Lectures, LectureChat
+from database import User, Student, Tutor, User_Login, Lectures, LectureChat, Course
 
 load_dotenv()
 
