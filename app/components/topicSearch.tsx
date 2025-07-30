@@ -4,7 +4,7 @@ import { useState, useContext, useEffect } from 'react'
 import { AuthContext } from "../context/AuthContext";
 import "../chatFormat.css"
 
-export default function LectureHome(){
+export default function AllSearch({ clickAction }){
     const [proficiency, setProficiency] = useState(65);
     const [InputText, setInputText] = useState('')
     const [queryResults, setQueryResults] = useState([{Topic: "abc", Subtopics: ["x","y","z"]}])
@@ -114,15 +114,15 @@ function searchMathTopics(inp) {
     
     
   return (
-    <div className='text-2xl'>
-        <div className='p-20'>
-          <input value={InputText} placeholder='enter a topic' onChange={e => setInputText(e.target.value)}/>
+    <div className='h-full'>
+        <div className='bg-slate-300 max-w-[50%] max-h-full rounded-3xl p-5'>
+          <input value={InputText} placeholder='Choose a Subtopic' onChange={e => setInputText(e.target.value)} className='bg-white p-3 rounded-full placeholder:text-black w-full'/>
           {InputText.trim() !== "" && queryResults.map((obj, index) => (
-            <div key={index}>
+            <div key={index} className='overflow-y-scroll'>
               <p className="font-bold mt-4">{obj.Topic}</p>
               <div style={{ height: 2, backgroundColor: "gray", marginBottom: 8 }}></div>
               {obj.Subtopics.map((sub, subIndex) => (
-                <p key={subIndex}>{sub}</p>
+                <p onClick={() => clickAction(obj.Topic, sub)} className='cursor-pointer hover:bg-indigo-300 rounded-md' key={subIndex}>{sub}</p>
               ))}
             </div>
           ))}

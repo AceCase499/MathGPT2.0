@@ -8,7 +8,6 @@
 //give buttons and text input absolute position, and justify bottom middle CSS
 
 'use client'
-'--jsx'
 //export const dynamic = "force-dynamic";
 import React, { useRef, useEffect, useState, useContext } from 'react'
 import ReactMarkdown from 'react-markdown';
@@ -20,9 +19,11 @@ import NavigationBar from "../../assets/components/navbar/page"
 import { AuthContext } from "../context/AuthContext";
 import WaveLoader from "../components/loading"
 import { useRouter } from 'next/navigation';
+import AllSearch from '../components/topicSearch';
+import {SendHorizontal, CircleStop, Mic, PencilLine, Trash2, X } from "lucide-react"
 
 export default function jsChat(){
-  const { user, storeEquation, equation } = useContext(AuthContext) as any;
+  const { user } = useContext(AuthContext) as any;
   const router = useRouter();
 
   const [InputText, setInputText] = useState('')
@@ -32,90 +33,25 @@ export default function jsChat(){
   const [Topic, setTopic] = useState('')
   const [Subtopic, setSubtopic] = useState('')
   const [LectureStart, tggLectureStart] = useState(false)
-  const [MathEquation, setMathEquation] = useState("")
   const [updating, tggUpdating] = useState(false)
   const [openSearch, ttgSearch] = useState(false);
   const [currentLectureID, setCurrentLectureID] = useState(0)
   const [isCopied, setIsCopied] = useState(false);
+
   const [vizCounter, setVizCounter] = useState(0)
   const [audioCounter, setAudCounter] = useState(0)
   const [txtCounter, setTxtCounter] = useState(0)
-  const markdownTest = `
-The product of matrices is:
-$$
-AB = \\begin{pmatrix} 2 & 3 \\\\ 1 & 4 \\end{pmatrix} \\begin{pmatrix} 5 & 2 \\\\ 0 & 1 \\end{pmatrix}
-$$
-`;
+
+  const markdownTest = `The product of matrices is: $AB = \\begin{pmatrix} 2 & 3 \\\\ 1 & 4 \\end{pmatrix} \\begin{pmatrix} 5 & 2 \\\\ 0 & 1 \\end{pmatrix}$`;
   const [audioUrl, setAudioUrl] = useState(null);
-  const [ChatStream, setChatStream] = useState([{sender: "ai", message: "Let's begin a new math lecture!"}])
+  const [ChatStream, setChatStream] = useState([
+    {sender: "ai", message: `👋Hi, I'm your math assistant. Let's begin a new math lecture!\n🔎Click the button above to select the math topic you want to learn about.\n🧩Continue the lecture by engaging with me.\nAsk me questions, and prompt me for real world examples.\n🔄You can start over with a new topic by clicking the button on top of the screen again.`}])
+  //In ChatStream, the 3 sender values are 'ai' 'user' and 'assistant'
   const [LectureArchive, setLectureArchive] = useState([])
   const [recording, setRecording] = useState(false);
   const [transcript, setTranscript] = useState('');
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
-  const mathTopics = [
-  {Topic: "Algebra", 
-    Subtopics: [
-    "Simplifying expressions",
-    "Solving linear equations",
-    "Distributive property",
-    "Evaluating expressions",
-    "Graphing lines",
-    "Slope-intercept form (y=mx+b)",
-    "Solving inequalities",
-    "Systems of linear inequalities",
-    "Factoring quadratics",
-    "Quadratic formula",
-    "Graphing parabolas",
-    "Completing the square",
-  ]},
-  {Topic: "Geometry", 
-    Subtopics: [
-    "Types of angles (acute, obtuse, right)",
-    "Triangle congruence (SSS, SAS)",
-    "Pythagorean theorem",
-    "Similar triangles",
-    "Parallel lines & transversals",
-    "Properties of quadrilaterals",
-    "Polygon interior angles",
-    "Perimeter calculations",
-    "Diagonals in polygons",
-    "Circle theorems",
-    "Arc length & sector area",
-    "Chord properties",
-    "Equations of circles",
-  ]},
-  {Topic: "Calculus",
-    Subtopics: [
-    "Power rule",
-    "Product/quotient rule",
-    "Chain rule",
-    "Implicit differentiation",
-    "Tangent lines",
-    "Optimization problems",
-    "Related rates",
-    "Curve sketching",
-    "Substitution method",
-    "Definite integrals",
-    "Area under curves",
-    "Fundamental Theorem of Calculus",
-  ]},
-  {Topic: "Statistics",
-    Subtopics: [
-    "Sample spaces",
-    "Addition/multiplication rules",
-    "Independent vs. dependent events",
-    "Conditional probability",
-    "Binomial distribution",
-    "Normal distribution (z-scores)",
-    "Expected value",
-    "Poisson distribution",
-    "Null/alternative hypotheses",
-    "p-values",
-    "t-tests",
-    "Type I/II errors",
-  ]},
-];
   const [queryResults, setQueryResults] = useState([{Topic: "abc", Subtopics: ["x","y","z"]}])
 
     useEffect(() => {
@@ -125,10 +61,6 @@ $$
         loadLectureList()
       }
     }, [user, router]); // The empty array ensures this effect runs only once on mount
-
-    useEffect(()=>{
-      searchMathTopics(SearchText)
-    }, [SearchText])
 
 
   const chatContainer = useRef<HTMLDivElement>(null) //sets up a new chatContainer that is used in the second approach
@@ -154,10 +86,6 @@ $$
       //only set a new topic if the user inputs a nonempty string
       setTopic(newTopic)
 
-      if (currentBotResponse.trim()) {
-        setChatStream((prev) => [...prev, { sender: "ai", message: currentBotResponse }]);
-        setCurrentBotResponse("");
-      }
       setChatStream((prev) => [...prev, { sender: "system", message: `System: The topic was changed to "${newTopic}."`, }]);
       //save new chat to conversation
       ttginp(true) //enable chat bar
@@ -175,10 +103,6 @@ $$
       //only set a new topic if the user inputs a nonempty string
       setSubtopic(newTopic)
 
-      if (currentBotResponse.trim()) {
-        setChatStream((prev) => [...prev, { sender: "ai", message: currentBotResponse }]);
-        setCurrentBotResponse("");
-      }
       setChatStream((prev) => [...prev, { sender: "system", message: `System: The subtopic was changed to "${newTopic}."`, }]);
       //save new chat to conversation
       ttginp(true) //enable chat bar
@@ -187,40 +111,12 @@ $$
     }
   }
 
-  function searchMathTopics(inp) {
-  const query = inp.toLowerCase().trim();
-  if (query === "") return;
-
-  // First: search subtopics
-  const subtopicMatches = mathTopics
-    .map(({ Topic, Subtopics }) => {
-      const matchingSubtopics = Subtopics.filter(sub =>
-        sub.toLowerCase().includes(query)
-      );
-      return matchingSubtopics.length > 0 ? { Topic, Subtopics: matchingSubtopics } : null;
-    })
-    .filter(Boolean);
-
-  if (subtopicMatches.length > 0) {
-    setQueryResults(subtopicMatches);
-    return;
+  function updateTopicFromSelect(tpc,stpc){
+    setTopic(tpc)
+    setSubtopic(stpc)
+    setChatStream((prev) => [...prev, { sender: "system", message: `System: The topic was changed to: ${tpc}, ${stpc}.`, }]);
+    ttgSearch(!openSearch)
   }
-
-  // Second: fallback to matching topics by name
-  const topicMatches = mathTopics
-    .filter(({ Topic }) => Topic.toLowerCase().includes(query));
-
-  if (topicMatches.length > 0) {
-    setQueryResults(topicMatches); // This already includes Subtopics
-  } else {
-    setQueryResults([
-      {
-        Topic: "No Results",
-        Subtopics: ["Try searching something else"],
-      },
-    ]);
-  }
-}
 
    const startLecture = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -261,8 +157,8 @@ $$
     }
     ttginp(false);
   
-    if (currentLectureID == 0){
-      alert("Choose a topic and click the 'Start Lecture' button")
+    if (currentLectureID == 0 || Topic == "" || Subtopic == ""){
+      ttgSearch(!openSearch)
       return
     }
 
@@ -279,14 +175,6 @@ $$
     const data = await response.json();
     console.log(data)
     setChatStream(prev => [...prev, { sender: "ai", message: data.answer }]);
-
-    const regex = /\${1,2}([^$]+?)\${1,2}/g;
-    const matches = Array.from(data.answer.matchAll(regex));
-    if (matches.length > 0) {
-      const lastMatch = matches[matches.length - 1];
-      /* alert(`A new math problem is available for practice:\n ${lastMatch[0]}`) */
-      setMathEquation(lastMatch[0])
-    }
     setInputText("")
     ttginp(true) //enable chat bar
     scroll()
@@ -495,12 +383,23 @@ $$
     setSubtopic(stpc)
   }
 
+  function rreset (){
+    setChatStream([
+      {sender: "ai", message: `👋Hi, I'm your math assistant. Let's begin a new math lecture!\n🔎Click the button above to select the math topic you want to learn about.\n🧩Continue the lecture by engaging with me.\nAsk me questions, and prompt me for real world examples.\n🔄You can start over with a new topic by clicking the button on top of the screen again.`}
+    ])
+    setInputText("")
+    setSearchText("")
+    setCurrentLectureID(0)
+    tggLectureStart(false)
+  }
+  
+
   return (
     <div>
       <NavigationBar/>
       <div className="splitsub left bg-slate-300 text-xl h-full">
         {/* This div holds the left panel */}
-        <p onClick={()=>router.refresh()} className="py-3 text-xl font-extrabold underline underline-offset-8">
+        <p onClick={rreset} className="py-3 cursor-pointer text-xl font-extrabold underline underline-offset-8">
           Start a new Lecture
         </p>
         <h1 className="text-blue-600 px-3 pt-3 font-extrabold">Previous Sessions:</h1>
@@ -510,96 +409,26 @@ $$
               id={lec.lecture_id.toString()}
               key={lec.lecture_id}
               style={{ padding: 4, borderRadius: 20 }}
-              className="parent flex items-center justify-between cursor-pointer bg-transparent hover:bg-indigo-300"
+              className="parent flex items-center justify-between bg-transparent hover:bg-indigo-300"
             >
               <p
                 onClick={() => loadSingleLecture(lec.lecture_id, lec.topic, lec.subtopic)}
-                className="font-bold fadeTargetIn text-ellipsis"
+                className="font-bold cursor-pointer fadeTargetIn text-ellipsis"
               >
                 {lec.title}
               </p>
               <div className="child flex items-center space-x-2">
-                <svg
-                  onClick={() => renameLecture(lec.lecture_id)}
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="24"
-                  height="24"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="lucide lucide-pencil-line-icon lucide-pencil-line"
-                >
-                  <path d="M12 20h9" />
-                  <path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z" />
-                  <path d="m15 5 3 3" />
-                </svg>
-                <svg
-                  onClick={() => deleteLecture(lec.lecture_id)}
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="24"
-                  height="24"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="#e32400"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="lucide cursor-pointer lucide-trash2-icon lucide-trash-2"
-                >
-                  <path d="M3 6h18" />
-                  <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-                  <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-                  <line x1="10" x2="10" y1="11" y2="17" />
-                  <line x1="14" x2="14" y1="11" y2="17" />
-                </svg>
+                <PencilLine onClick={() => renameLecture(lec.lecture_id)} size={24} color="currentcolor" className='cursor-pointer'/>
+                <Trash2 onClick={() => deleteLecture(lec.lecture_id)} size={24} className='cursor-pointer' color="#e32400"/>
               </div>
             </div>
           ))}
       </div>
       <div className="splitmain right text-lg">
         {/* This div holds the right panel */}
-          {/* <button onClick={()=> alert(user?.id)}>Try Me</button> */}
-          <button onClick={()=>ttgSearch(!openSearch)}>Select a Math Topic</button>
-          {openSearch == true &&
-            <div className='text-2xl w-[50%]'>
-              <div className='p-20'>
-                <input value={SearchText} placeholder='Search for a Math Topic' onChange={e => setSearchText(e.target.value)}/>
-                {SearchText.trim() !== "" && queryResults.map((obj, index) => (
-                  <div key={index}>
-                    <p className="font-bold mt-4">{obj.Topic}</p>
-                    <div style={{ height: 2, backgroundColor: "gray", marginBottom: 8 }}></div>
-                    {obj.Subtopics.map((sub, subIndex) => (
-                      <p onClick={()=>chosenTopic(obj.Topic, sub)} className='cursor-pointer hover:bg-indigo-300' key={subIndex}>{sub}</p>
-                    ))}
-                  </div>
-                ))}
-              </div>
-          </div>}
-          {/* {!Topic ? (
-            <button className="mx-auto w-full py-1 cursor-pointer text-xl font-extrabold underline underline-offset-8" onClick={setNewTopic}>
-              Enter a Math Topic Here
-            </button>
-          ):(
-            <p className="flex justify-center space-x-4 text-xl font-extrabold underline underline-offset-8">
-              {Topic}              
-              <svg onClick={setNewTopic} xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="cursor-pointer lucide lucide-pencil-line-icon lucide-pencil-line"><path d="M12 20h9"/><path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z"/><path d="m15 5 3 3"/></svg>
-            </p>
-            
-          )}
-          {!Subtopic ? (
-            <button className="mx-auto w-full py-3 cursor-pointer text-xl italic underline-offset-8" onClick={setNewSubtopic}>
-              Enter a Subtopic Here
-            </button>
-          ):(
-            <p className="flex justify-center space-x-4 italic underline-offset-8">
-              {Subtopic}              
-              <svg onClick={setNewSubtopic} xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="cursor-pointer lucide lucide-pencil-line-icon lucide-pencil-line"><path d="M12 20h9"/><path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z"/><path d="m15 5 3 3"/></svg>
-            </p>
-          )} */}
-        <center>
+          <center><button className='cursor-pointer border-4 bg-indigo-200 rounded-xl p-2' onClick={()=>ttgSearch(!openSearch)}>
+            {Topic != "" && Subtopic != "" ? (Topic+", "+Subtopic): "Select a Math Topic"}
+          </button></center>
           <div ref={chatContainer} style={{boxShadow: "0 0 30px rgb(160, 160, 160)", flex: 1, overflowY: "scroll", height: "55vh"}}> {/* //This div streams the response in real time, couldn't finish it in time */}
             {ChatStream.map((chat, index) => (
               <div id={index.toString()} key={index} className={getBubbleStyle(chat.sender, false)}> {/* Setting the id prevents warnings/errors from the map function, otherwise it in not important*/}
@@ -622,6 +451,7 @@ $$
             </div>}
           </div>
         <br/>
+        <center>
           <div>
             <div style={{ display: 'flex', gap: '1rem', alignItems: "center", justifyContent: "center" }}>
               {LectureStart == true ? ( 
@@ -632,7 +462,7 @@ $$
                   <button onClick={()=> router.refresh()} className="cursor-pointer rounded-lg border sm:block bg-white p-1 hover:bg-zinc-200">
                     Request Image/Graph
                   </button>
-                  <button onClick={()=> router.refresh()} className="cursor-pointer rounded-lg border sm:block bg-white p-1 hover:bg-zinc-200">
+                  <button onClick={rreset} className="cursor-pointer rounded-lg border sm:block bg-white p-1 hover:bg-zinc-200">
                     New Lecture
                   </button>
                   {/* <button style={{borderColor: "green"}} onClick={markComplete} className="cursor-pointer rounded-lg border sm:block bg-white p-1 hover:bg-zinc-200">
@@ -650,9 +480,10 @@ $$
                   Your browser does not support the audio element.
                 </audio>
               </div>
-            )}        
-            <form onSubmit={continueLecture}>
-              <div className='flex justify-center'>
+            )} 
+            {LectureStart == true && 
+              <form onSubmit={continueLecture}>
+              <div className='fadeTargetIn flex justify-center space-x-1'>
                 <textarea
                 style={{overflowY: "scroll",resize: "block", }}
                 value={InputText}
@@ -663,21 +494,37 @@ $$
                 }
                 className={InpEnabled ? inputBar+enabledcss : inputBar+disabledcss}
                 />
-                <button type='submit' style={{width:60, height:60, borderWidth: 1, borderColor: "black", borderRadius: 9999, cursor:"pointer"}} className='hover:bg-zinc-200'>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="45" height="45" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="centerThis lucide lucide-send-horizontal-icon lucide-send-horizontal"><path d="M3.714 3.048a.498.498 0 0 0-.683.627l2.843 7.627a2 2 0 0 1 0 1.396l-2.842 7.627a.498.498 0 0 0 .682.627l18-8.5a.5.5 0 0 0 0-.904z"/><path d="M6 12h16"/></svg>
-                </button>
-                {/* <div onClick={recording ? stopRecording : startRecording} style={{width:60, height:60, borderWidth: 1, borderColor: "black", borderRadius: 9999, cursor:"pointer"}} className='hover:bg-zinc-200'>
                 {recording ? (
-                  <svg xmlns="http://www.w3.org/2000/svg" width="45" height="45" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-circle-stop-icon lucide-circle-stop"><circle cx="12" cy="12" r="10"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
+                  <button type='submit' style={{width:60, height:60, borderWidth: 1, borderColor: "black", borderRadius: 9999, cursor:"pointer"}} className='content-center hover:bg-zinc-200'>
+                    <CircleStop className='centerThis' size={45} color="currentcolor"/>
+                  </button>
                 ) : (
-                  <svg xmlns="http://www.w3.org/2000/svg" width="45" height="45" viewBox="0 0 24 24" fill="none" stroke="#000000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="content-center lucide lucide-mic-icon lucide-mic"><path d="M12 19v3"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><rect x="9" y="2" width="6" height="13" rx="3"/></svg>
+                  <button type='submit' style={{width:60, height:60, borderWidth: 1, borderColor: "black", borderRadius: 9999, cursor:"pointer"}} className='content-center hover:bg-zinc-200'>
+                    <Mic className='centerThis fadeTargetIn' size={45} color="currentcolor"/>
+                  </button>
                 )}
-                </div> */}
+                <button type='submit' style={{width:60, height:60, borderWidth: 1, borderColor: "black", borderRadius: 9999, cursor:"pointer"}} className='hover:bg-zinc-200'>
+                  <SendHorizontal className='centerThis fadeTargetIn' size={45} color="currentcolor" />
+                </button>
               </div>
             </form>
+            }   
           </div>
           </center>
       </div>
+      {openSearch && (
+        <div className="fixed inset-0 flex overflow-y-scroll items-center justify-center z-50" style={{ backgroundColor: "rgba(0, 0, 0, 0.75)" }}>
+          <div className="bg-white rounded-lg p-6 w-full max-w-[50%] h-[90%] centerThis">
+            <div onClick={()=>ttgSearch(!openSearch)} className='cursor-pointer bg-gray-300 rounded-full w-[45px] h-[45px]'>
+              <X size={45} color="currentcolor"/>
+            </div>
+            <h2 className="text-2xl font-bold mb-4">Choose a Math Topic</h2>
+            <center>
+              <AllSearch clickAction={updateTopicFromSelect}></AllSearch>
+            </center>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
