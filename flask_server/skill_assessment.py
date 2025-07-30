@@ -9,9 +9,10 @@ import os
 import math
 import json
 from dotenv import load_dotenv
+import re
 
 load_dotenv()
-client = OpenAI(api_key=os.environ.get("GPT_API"))
+client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
 assessment_bp = Blueprint('assessment', __name__)
 
@@ -35,6 +36,10 @@ def end_assessment(reason="terminated"):
 def irt_probability(theta, b, a=1.0):
     return 1 / (1 + math.exp(-a * (theta - b)))
 
+def fisher_information(theta, b, a=1.0):
+    p = irt_probability(theta, b, a)
+    return a**2 * p * (1 - p)
+
 def update_theta(theta, correct, b, a=1.0, lr=0.1):
     p = irt_probability(theta, b, a)
     grad = a * (correct - p)
@@ -48,6 +53,10 @@ def difficulty_to_b(difficulty):
     elif difficulty == "hard":
         return 1.0
     return 0.0
+
+def standard_error(theta, responses):
+    info_sum = sum(fisher_information(theta, b) for b, _ in responses)
+    return 1.0 / math.sqrt(info_sum) if info_sum > 0 else float('inf')
 
 
 # Generate diagnostic questions for a given topic
@@ -77,19 +86,24 @@ def diagnostic_test():
         - "mcq" (multiple choice)
         - "numeric" (short numeric answer)
         - "proof" (student writes a short logical justification)
-        - "graph" (student interprets or plots a graph)
+        - "graph" (only include questions that require plotting or selecting coordinate points; DO NOT include questions that only require interpreting a graph)
 
         Distribute the types reasonably across the {num_questions}. Each question must be tagged with one of those types.
 
         Each question must be a JSON object and include:
         - "subtopic": a full skill path of topic → sub-topic → sub-sub-topic
         - "question": the question text
+            - for proof: include one of the key words "why", "explain", "justify", "prove", "show that"
         - "type": one of "mcq", "numeric", "proof", or "graph"
         - "difficulty": "easy", "medium", or "hard"
-        - "correct_answer": the correct answer
-        - "options": list of 3-5 choices (required for mcq only; correct_answer must be in options)
+        - "correct_answer":
+            - for mcq/numeric: string or number. Only include minimal form answers; DO NOT return expressions like 5 * 2**0.5 — instead, return evaluated decimal numbers
+            - for proof: text justification
+            - for graph: a list of AT LEAST two (x, y) coordinate points as tuples or arrays (e.g., [[1,2], [2,4]])
 
-        Respond ONLY with strict JSON. DO NOT use code blocks (no ```), markdown, or explanations. 
+        - "options": list of 3–5 choices (required for mcq only; correct_answer must be in options)
+
+        Respond ONLY with strict JSON. DO NOT use code blocks (no ```), markdown, or explanations.
         Example format:
         {{
             "questions": [
@@ -103,6 +117,8 @@ def diagnostic_test():
                 }}
             ]
         }}
+
+        Validate the output JSON before responding. It must parse with Python's json.loads()
         """
 
     try:
@@ -134,6 +150,28 @@ def diagnostic_test():
                         print(f"Skipping MCQ (correct_answer not in options): {item}")
                         continue
 
+                # Auto-correct invalid "proof" types
+                if item.get("type") == "proof":
+                    qtext = item.get("question", "").lower()
+                    allowed_proof_keywords = ["why", "explain", "justify", "prove", "show that"]
+                    if not any(keyword in qtext for keyword in allowed_proof_keywords):
+                        # Force to numeric if question is not truly 'proof' type
+                        item["type"] = "numeric"
+                        # Optional: extract numeric answer if embedded in explanation
+                        ans_text = str(item.get("correct_answer", "")).strip()
+                        match = re.search(r"[-+]?\d*\.?\d+", ans_text)
+                        if match:
+                            item["correct_answer"] = match.group(0)
+
+                # Additional Backend Validation for Graph Questions
+                if item.get("type") == "graph":
+                    graph_answer = item.get("correct_answer")
+                    if not (isinstance(graph_answer, list) and len(graph_answer) >= 2 and all(
+                        isinstance(pt, (list, tuple)) and len(pt) == 2 for pt in graph_answer)):
+                        print(f"Skipping invalid graph answer: {item}")
+                        continue
+                    item["correct_answer"] = [list(pt) for pt in item["correct_answer"]]
+
                 db_entry = DiagnosticProblem(
                     student_id=int(student_id),
                     subtopic=subtopic,
@@ -141,13 +179,15 @@ def diagnostic_test():
                     difficulty=item.get('difficulty', 'medium'),
                     type=item.get('type', 'numeric'),
                     options=json.dumps(item.get('options')) if item.get('options') else None,
-                    correct_answer=item.get('correct_answer'),
+                    correct_answer=json.dumps(item.get("correct_answer")),
                     is_served=False
                 )
                 session.add(db_entry)
+                session.flush() #  Ensure that the value of db_entry.id is assigned by the database
+                item["id"] = db_entry.id  # Add the id generated by the database to the question
             session.commit()
 
-        return jsonify({"status": "saved", 
+        return jsonify({"status": "saved",
                         "count": sum(len(v) for v in question_data.values()),
                         "questions": questions})
 
@@ -168,90 +208,91 @@ def diagnostic_test():
 @assessment_bp.route('/skill_assessment/pick_problem', methods=['POST'])
 def pick_problem():
     student_id = request.json.get('student_id')
-    with Session(engine) as session:
-        next_question = session.query(DiagnosticProblem)\
-            .filter_by(student_id=student_id, is_served=False)\
-            .order_by(DiagnosticProblem.id)\
-            .first()
 
-        if not next_question:
+    with Session(engine) as session:
+        problems = session.query(DiagnosticProblem).filter_by(student_id=student_id, is_served=False).all()
+        if not problems:
             return jsonify({"status": "completed"}), 200
 
-        next_question.is_served = True
+        # Retrieve student's theta and responses from a hidden question
+        progress = session.get(Student, student_id).progress_percentage
+        try:
+            state = json.loads(progress) if progress else {}
+        except:
+            state = {}
+
+        theta = state.get("theta", 0.0)
+        responses = state.get("responses", [])
+
+        # Select problem with max Fisher information
+        best = max(problems, key=lambda p: fisher_information(theta, difficulty_to_b(p.difficulty)))
+        best.is_served = True
         session.commit()
 
-        # Construct response based on type
-        problem_payload = {
-            "question": next_question.question,
-            "type": next_question.type,
-            "difficulty": next_question.difficulty,
+        payload = {
+            "question": best.question,
+            "type": best.type,
+            "difficulty": best.difficulty,
+            "id": best.id,
+            "correct_answer": best.correct_answer
         }
-
-        if next_question.type == "mcq":
-            problem_payload["options"] = json.loads(next_question.options) if next_question.options else None
-        elif next_question.type in ["proof", "graph"]:
-            # frontend can render input differently based on type
-            problem_payload["options"] = None  # can be omitted if preferred
-
-        return jsonify({
-            "subtopic": next_question.subtopic,
-            "problem": problem_payload
-        })
+        if best.type == "mcq":
+            payload["options"] = json.loads(best.options) if best.options else None
+        return jsonify({"subtopic": best.subtopic, "problem": payload})
 
 
 # This route evaluates a student's answer using GPT and returns 'Correct' or 'Incorrect'
-@assessment_bp.route('/skill_assessment/submit_solution_for_proof', methods=['POST'])
-def submit_solution():
+@assessment_bp.route('/skill_assessment/submit_answer', methods=['POST'])
+def submit_answer():
     problem_id = request.json.get("problem_id")
+    student_id = request.json.get("student_id")
     student_answer = request.json.get("answer")
 
     with Session(engine) as session:
         problem = session.get(DiagnosticProblem, problem_id)
-        if not problem:
-            return jsonify({"error": "Problem not found"}), 404
+        student = session.get(Student, student_id)
+        if not problem or not student:
+            return jsonify({"error": "Problem or student not found"}), 404
 
-        question = problem.question
-        correct_answer = problem.correct_answer
+        correct = 0
         qtype = problem.type
 
-    try:
-        # Select grading strategy
         if qtype == "mcq" or qtype == "numeric":
-            prompt = f"""
-You are an AI grader. Determine whether the student's answer is correct.
-Question: {question}
-Student's Answer: {student_answer}
-Respond with only 'Correct' or 'Incorrect'.
-"""
-            judgment = ask_gpt(prompt, max_tokens=10)
-            response = {"result": judgment.strip()}
-            if judgment.strip().lower() == "incorrect" and correct_answer:
-                response["correct_answer"] = correct_answer
-
+            correct_answer = json.loads(problem.correct_answer)
+            correct = int(str(student_answer).strip() == str(correct_answer).strip())
         elif qtype == "proof":
             prompt = f"""
 You are a math proof grader. Evaluate the student's proof and return only:
-'Correct' or 'Incorrect' based on logical validity and completeness.
-
-Question: {question}
+'Correct' or 'Incorrect'.
+Question: {problem.question}
 Student's Proof: {student_answer}
 """
-            judgment = ask_gpt(prompt, max_tokens=20)
-            response = {"result": judgment.strip()}
-
+            result = ask_gpt(prompt, max_tokens=10)
+            correct = int("correct" in result.lower())
         elif qtype == "graph":
-            response = {
-                "result": "Pending manual review",  # or "Needs graphical validation"
-                "note": "Graph-based answers require visual review."
-            }
+            return jsonify({"result": "Pending review"})
 
-        else:
-            response = {"result": "Unsupported question type"}
+        try:
+            # Update CAT state
+            progress = student.progress_percentage
+            state = json.loads(progress) if progress else {}
+            theta = state.get("theta", 0.0)
+            responses = state.get("responses", [])
+            b = difficulty_to_b(problem.difficulty)
+            new_theta = update_theta(theta, correct, b)
+            responses.append((b, correct))
+            se = standard_error(new_theta, responses)
 
-        return jsonify(response)
-    
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+            state = {"theta": new_theta, "responses": responses}
+            student.progress_percentage = json.dumps(state)
+            session.commit()
+
+            # Termination condition
+            if se < 0.3 or len(responses) >= 20:
+                return jsonify({"status": "terminated", "reason": "CAT termination reached."})
+            return jsonify({"status": "continue"})
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
 
 
 # This route generates a study plan based on the student's mastery report
@@ -515,4 +556,3 @@ def list_problems():
             "correct_answer": p.correct_answer
         } for p in problems]
     return jsonify(result)
-
