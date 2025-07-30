@@ -28,7 +28,7 @@ export default function jsChat(){
 
   const [InputText, setInputText] = useState('')
   const [SearchText, setSearchText] = useState('')
-  const [currentBotResponse, setCurrentBotResponse] = useState(''); // Temporary storage for streaming response
+  const [currentBotResponse, setCurrentBotResponse] = useState(''); // Temporary storage for streaming chatbot responses
   const [InpEnabled, ttginp] = useState(true) //true = enabled, false = disabled
   const [Topic, setTopic] = useState('')
   const [Subtopic, setSubtopic] = useState('')
@@ -40,7 +40,7 @@ export default function jsChat(){
 
   const [vizCounter, setVizCounter] = useState(0)
   const [audioCounter, setAudCounter] = useState(0)
-  const [txtCounter, setTxtCounter] = useState(0)
+  const [LStyle, setLStyle] = useState("auto")
 
   const markdownTest = `The product of matrices is: $AB = \\begin{pmatrix} 2 & 3 \\\\ 1 & 4 \\end{pmatrix} \\begin{pmatrix} 5 & 2 \\\\ 0 & 1 \\end{pmatrix}$`;
   const [audioUrl, setAudioUrl] = useState(null);
@@ -49,10 +49,9 @@ export default function jsChat(){
   //In ChatStream, the 3 sender values are 'ai' 'user' and 'assistant'
   const [LectureArchive, setLectureArchive] = useState([])
   const [recording, setRecording] = useState(false);
-  const [transcript, setTranscript] = useState('');
+  const [transcript, setTranscript] = useState('');//used for text to speech and voice input
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
-  const [queryResults, setQueryResults] = useState([{Topic: "abc", Subtopics: ["x","y","z"]}])
 
     useEffect(() => {
       if (!user){
@@ -148,6 +147,7 @@ export default function jsChat(){
     tggLectureStart(true); // Enable "Continue Lecture" button
     ttginp(true);
     loadLectureList();
+    applyStyle();
 };
 
   async function continueLecture (e: React.FormEvent){
@@ -178,6 +178,7 @@ export default function jsChat(){
     setInputText("")
     ttginp(true) //enable chat bar
     scroll()
+    applyStyle()
   };
 
   function getBubbleStyle(role, inout){ //if true, get inner CSS, if false, get outer CSS
@@ -308,7 +309,7 @@ export default function jsChat(){
     setLectureArchive(data)
   }
 
-  async function TTS(copyText){
+  async function TTSopenai(copyText){
     setAudioUrl(null);
     try {
       const response = await fetch('https://mathgptdevs25.pythonanywhere.com/mathgpt/texttospeech', {
@@ -330,6 +331,7 @@ export default function jsChat(){
       console.error('TTS Error:', error);
       alert('Failed to generate speech.');
     }
+    setAudCounter(audioCounter+1);
   }
 
   const handleCopy = async (textt) => {
@@ -392,6 +394,49 @@ export default function jsChat(){
     setCurrentLectureID(0)
     tggLectureStart(false)
   }
+
+  function getGraphic (){
+    setChatStream(prev => [...prev, { sender: "ai", message: "(📈Insert chart, diagram, graph etc. here📊)" }]);
+    setVizCounter(vizCounter+1)
+    scroll();
+  }
+
+  function applyStyle (){
+    if (LStyle == "Auto"){//if the user's learning style is set to 'auto', automatically use the tool that they use most often
+      if (vizCounter > audioCounter){
+        getGraphic()
+        return
+      }
+      if (audioCounter > vizCounter){
+        let streamm = ChatStream
+        let lastChat = streamm[streamm.length-1].message
+        TTSopenai(lastChat)
+        return
+      }
+      if (audioCounter == vizCounter){//if the counters are equal, pick a tool at random and activate it automatically
+        let randomVal = Math.floor(Math.random() * 2) + 1;
+        if (randomVal == 1){
+          getGraphic()
+          return
+        } else{
+          let streamm = ChatStream
+          let lastChat = streamm[streamm.length-1].message
+          TTSopenai(lastChat)
+          return
+        }
+      }
+    }
+    if (LStyle == "Visual"){//if the style is set to Visual, generate an image to go with the lecture automatically
+      getGraphic()
+      return
+    }
+    if (LStyle == "Audio"){//if the style is set to Audio, generate text to speech with every new message automatically
+      let streamm = ChatStream
+      let lastChat = streamm[streamm.length-1].message
+      TTSopenai(lastChat)
+      return
+    }
+  }
   
 
   return (
@@ -438,7 +483,7 @@ export default function jsChat(){
                 </ReactMarkdown>
                 <div className='tooltiptext flex justify-center space-x-3'>
                   <svg onClick={()=>handleCopy(chat.message)} xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="cursor-pointer lucide lucide-copy-icon lucide-copy"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
-                  <svg onClick={()=>TTS(chat.message)} xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className=" cursor-pointer lucide lucide-volume2-icon lucide-volume-2"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><path d="M16 9a5 5 0 0 1 0 6"/><path d="M19.364 18.364a9 9 0 0 0 0-12.728"/></svg>
+                  <svg onClick={()=>TTSopenai(chat.message)} xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className=" cursor-pointer lucide lucide-volume2-icon lucide-volume-2"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><path d="M16 9a5 5 0 0 1 0 6"/><path d="M19.364 18.364a9 9 0 0 0 0-12.728"/></svg>
                 </div>
               </div>
             </div>
@@ -459,7 +504,7 @@ export default function jsChat(){
                   <button onClick={()=>renameLecture(currentLectureID)} className="cursor-pointer rounded-lg border sm:block bg-white p-1 hover:bg-zinc-200">
                     Rename This Lecture
                   </button>
-                  <button onClick={()=> router.refresh()} className="cursor-pointer rounded-lg border sm:block bg-white p-1 hover:bg-zinc-200">
+                  <button onClick={getGraphic} className="cursor-pointer rounded-lg border sm:block bg-white p-1 hover:bg-zinc-200">
                     Request Image/Graph
                   </button>
                   <button onClick={rreset} className="cursor-pointer rounded-lg border sm:block bg-white p-1 hover:bg-zinc-200">

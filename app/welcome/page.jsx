@@ -1,15 +1,12 @@
 "use client"
 export const dynamic = "force-dynamic";
-//import { useContext} from 'react';
 import Image from 'next/image'
 import logo from '../../assets/images/logofull.png';
 import { useRouter } from 'next/navigation';
 import { useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
-//import { AuthContext } from "../context/AuthContext.js";
 
 const HomePage = () => {
-  //const { user, logout } = useContext(AuthContext);
   const { logout } = useContext(AuthContext);
   const router = useRouter();
 

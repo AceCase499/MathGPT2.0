@@ -22,7 +22,7 @@ export default function ProfileModalGlobal() {
 
   const handleYes = () => {
     setShowPrompt(false);
-    router.push('/profilepage');
+    router.push('/profile2');
   };
 
   const handleNo = () => {
