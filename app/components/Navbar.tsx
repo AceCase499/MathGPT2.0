@@ -14,11 +14,10 @@ export default function Navbar() {
 
   useEffect(() => {
     setMounted(true);
-    if (user){
+    if (user?.user_type == "Student"){
       getLStyle()
     }
   }, []);
-
   //console.log('Navbar user:', user);
 
   if (!mounted) {
@@ -28,7 +27,6 @@ export default function Navbar() {
   const isLoggedIn = !!user;
 
   async function getLStyle(){
-    ttgUpdateLS(!updatingLS)
     const form = new FormData();
     Object.entries({student_id: user?.id}).forEach(([key, value]) => {
       form.append(key, value);
@@ -39,13 +37,11 @@ export default function Navbar() {
     });
 
     const data = await response.json();
-    alert("Style set to "+data.learning_style)
+    //alert("Style set to "+data.learning_style)
     setLearningStyle(data.learning_style)
-    ttgUpdateLS(!updatingLS)
   }
 
-  async function handleLStyle(LStyle){
-    ttgUpdateLS(!updatingLS)
+  async function changeLStyle(LStyle){
     setLearningStyle(LStyle)
     const form = new FormData();
     Object.entries({student_id: user?.id, learning_style: LStyle}).forEach(([key, value]) => {
@@ -59,7 +55,6 @@ export default function Navbar() {
 
     const data = await response.json();
     alert(data.message)
-    ttgUpdateLS(!updatingLS)
   }
 
   return (
@@ -85,15 +80,16 @@ export default function Navbar() {
         
         {isLoggedIn ? (
           <div className='flex items-center space-x-4'>
+          {user.user_type == "Student" && 
           <div className='flex items-center bg-slate-300 p-2 rounded-xl'>
             <Sparkles size={24}/>
             <p className='font-bold'>Learning Style:</p>
-            <select name="ls" disabled={updatingLS} value={learningStyle} onChange={e=>handleLStyle(e.target.value)}>
+            <select name="ls" disabled={false} value={learningStyle} onChange={e=>changeLStyle(e.target.value)}>
               <option value="Auto">Auto</option>
               <option value="Audio">Audio</option>
               <option value="Visual">Visual</option>
             </select>
-          </div>
+          </div>}
           <Link
             href="/profile2"
             className="text-gray-700 hover:text-black text-lg"

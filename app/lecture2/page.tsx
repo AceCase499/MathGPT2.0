@@ -22,7 +22,7 @@ import { useRouter } from 'next/navigation';
 import AllSearch from '../components/topicSearch';
 import {SendHorizontal, CircleStop, Mic, PencilLine, Trash2, X } from "lucide-react"
 
-export default function jsChat(){
+export default function LectureMode(){
   const { user } = useContext(AuthContext) as any;
   const router = useRouter();
 
@@ -40,13 +40,13 @@ export default function jsChat(){
 
   const [vizCounter, setVizCounter] = useState(0)
   const [audioCounter, setAudCounter] = useState(0)
-  const [LStyle, setLStyle] = useState("auto")
+  const [learningStyle, setLearningStyle] = useState("Auto")
 
   const markdownTest = `The product of matrices is: $AB = \\begin{pmatrix} 2 & 3 \\\\ 1 & 4 \\end{pmatrix} \\begin{pmatrix} 5 & 2 \\\\ 0 & 1 \\end{pmatrix}$`;
   const [audioUrl, setAudioUrl] = useState(null);
   const [ChatStream, setChatStream] = useState([
-    {sender: "ai", message: `👋Hi, I'm your math assistant. Let's begin a new math lecture!\n🔎Click the button above to select the math topic you want to learn about.\n🧩Continue the lecture by engaging with me.\nAsk me questions, and prompt me for real world examples.\n🔄You can start over with a new topic by clicking the button on top of the screen again.`}])
-  //In ChatStream, the 3 sender values are 'ai' 'user' and 'assistant'
+    {sender: "assistant", message: `👋Hi, I'm your math assistant. Let's begin a new math lecture!\n🔎Click the button above to select the math topic you want to learn about.\n🧩Continue the lecture by engaging with me.\nAsk me questions, and prompt me for real world examples.\n🔄You can start over with a new topic by clicking the button on top of the screen again.`}])
+  //In ChatStream, the 3 sender values are 'system' 'user' and 'assistant'
   const [LectureArchive, setLectureArchive] = useState([])
   const [recording, setRecording] = useState(false);
   const [transcript, setTranscript] = useState('');//used for text to speech and voice input
@@ -58,6 +58,7 @@ export default function jsChat(){
         router.replace("/")
       } else {
         loadLectureList()
+        getLStyle()
       }
     }, [user, router]); // The empty array ensures this effect runs only once on mount
 
@@ -75,6 +76,20 @@ export default function jsChat(){
   const disabledcss =' bg-zinc-500'
   const enabledcss = " hover:bg-zinc-200"
   const inputBar = "w-[55%] border rounded-full p-4 cursor-pointer hidden md:block "
+
+  async function getLStyle(){
+    const form = new FormData();
+    Object.entries({student_id: user?.id}).forEach(([key, value]) => {
+      form.append(key, value);
+    });
+    const response = await fetch('https://mathgptdevs25.pythonanywhere.com/get_learning_style', {
+      method: 'POST',
+      body: form
+    });
+    const data = await response.json();
+    //alert("Style is "+data.learning_style)
+    setLearningStyle(data.learning_style)
+  }
   
   async function setNewTopic() {
     let newTopic = prompt(
@@ -142,7 +157,8 @@ export default function jsChat(){
     }
     const data = await response.json();
     setCurrentLectureID(data.lecture_id)
-    setChatStream(prev => [...prev, { sender: "assistant", message: data.content }]);
+    setChatStream(prev => [...prev, { sender: "assistant", message: data.lecture }]);
+    console.log(data.lecture)
     scroll()
     tggLectureStart(true); // Enable "Continue Lecture" button
     ttginp(true);
@@ -174,7 +190,7 @@ export default function jsChat(){
     });
 
     const data = await response.json();
-    setChatStream(prev => [...prev, { sender: "ai", message: data.answer }]);
+    setChatStream(prev => [...prev, { sender: "assistant", message: data.answer }]);
     setInputText("")
     ttginp(true) //enable chat bar
     scroll()
@@ -189,7 +205,7 @@ export default function jsChat(){
         return "systemOuter"
       }
     }
-    if (role == "student"){
+    if (role == "user"){
       if (inout){
         return "userInner"
       } else{
@@ -409,33 +425,36 @@ export default function jsChat(){
 
   function rreset (){
     setChatStream([
-      {sender: "ai", message: `👋Hi, I'm your math assistant. Let's begin a new math lecture!\n🔎Click the button above to select the math topic you want to learn about.\n🧩Continue the lecture by engaging with me.\nAsk me questions, and prompt me for real world examples.\n🔄You can start over with a new topic by clicking the button on top of the screen again.`}
+      {sender: "assistant", message: `👋Hi, I'm your math assistant. Let's begin a new math lecture!\n🔎Click the button above to select the math topic you want to learn about.\n🧩Continue the lecture by engaging with me.\nAsk me questions, and prompt me for real world examples.\n🔄You can start over with a new topic by clicking the button on top of the screen again.`}
     ])
     setInputText("")
     setSearchText("")
+    setTopic("")
+    setSubtopic("")
     setCurrentLectureID(0)
     tggLectureStart(false)
   }
 
   function getGraphic (){
-    setChatStream(prev => [...prev, { sender: "ai", message: "(📈Insert chart, diagram, graph etc. here📊)" }]);
+    setChatStream(prev => [...prev, { sender: "assistant", message: "(📈Insert chart, diagram, graph etc. here📊)" }]);
     setVizCounter(vizCounter+1)
     scroll();
   }
 
   function applyStyle (){
-    if (LStyle == "Visual"){//if the style is set to Visual, generate an image to go with the lecture automatically
+    alert("Hello from ")
+    if (learningStyle == "Visual"){//if the style is set to Visual, generate an image to go with the lecture automatically
       getGraphic()
       return
     }
-    if (LStyle == "Audio"){//if the style is set to Audio, generate text to speech with every new message automatically
+    if (learningStyle == "Audio"){//if the style is set to Audio, generate text to speech with every new message automatically
       let streamm = ChatStream
       let lastChat = streamm[streamm.length-1].message
       TTSopenai(lastChat)
       return
     }
-    
-    if (LStyle == "Auto"){//if the user's learning style is set to 'auto', automatically use the tool that they use most often
+
+    if (learningStyle == "Auto"){//if the user's learning style is set to 'auto', automatically use the tool that they use most often
       if (vizCounter > audioCounter){
         getGraphic()
         return
@@ -563,7 +582,7 @@ export default function jsChat(){
                 }
                 className={InpEnabled ? inputBar+enabledcss : inputBar+disabledcss}
                 />
-                {recording ? (
+                {/* {recording ? (
                   <button type='submit' style={{width:60, height:60, borderWidth: 1, borderColor: "black", borderRadius: 9999, cursor:"pointer"}} className='content-center hover:bg-zinc-200'>
                     <CircleStop className='centerThis' size={45} color="currentcolor"/>
                   </button>
@@ -571,7 +590,7 @@ export default function jsChat(){
                   <button type='submit' style={{width:60, height:60, borderWidth: 1, borderColor: "black", borderRadius: 9999, cursor:"pointer"}} className='content-center hover:bg-zinc-200'>
                     <Mic className='centerThis fadeTargetIn' size={45} color="currentcolor"/>
                   </button>
-                )}
+                )} */}
                 <button type='submit' style={{width:60, height:60, borderWidth: 1, borderColor: "black", borderRadius: 9999, cursor:"pointer"}} className='hover:bg-zinc-200'>
                   <SendHorizontal className='centerThis fadeTargetIn' size={45} color="currentcolor" />
                 </button>

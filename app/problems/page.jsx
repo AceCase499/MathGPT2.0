@@ -58,7 +58,7 @@ export default function ProblemsPage() {
   // --- Persistence ---
   useEffect(() => {
     //alert(`${user?.id}, ${user?.username}`)
-    loadLectureList()
+    loadProblemsList()
     //console.log(selectedProblem)
 
     /* try {
@@ -113,7 +113,7 @@ export default function ProblemsPage() {
     cursor: "pointer",
   };
 
-  async function loadLectureList(){
+  async function loadProblemsList(){
     const form = new FormData();
     Object.entries({ student_id: user?.id }).forEach(([key, value]) => {
       form.append(key, value);
@@ -275,29 +275,34 @@ export default function ProblemsPage() {
           }}
         >
 
-          {/* Problem view or new input */}
-          {selectedProblem != {} && 
+          {/* Problem view */}
+          {selectedProblem.session_id && 
           <div className='min-h-max'>
             <p className="font-bold text-xl flex px-4 justify-end pt-5">{"Date created: "+selectedProblem.created_at}</p>
             <p className="flex justify-end px-4">{selectedProblem.is_done == false ? "⚙️Not marked as Done":"✅Marked as Done"}</p>
             <p className="font-extrabold text-3xl flex justify-center pt-5 underline underline-offset-2">{selectedProblem.title}</p>
             <p className=" italic text-xl flex justify-center pt-2">{`(${selectedProblem.topic}, ${selectedProblem.subtopic})`}</p>
-            <p className="flex justify-center pt-4">Math Problem Goes Here</p>
-            <div className="flex justify-center h-max pt-10">
+            <div className="flex justify-center pt-4 px-6"><ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>{selectedProblem.problem}</ReactMarkdown></div>
+            <div className="flex justify-center space-x-3 h-max pt-10">
               <div className="min-h-max min-w-max pb-15">
                 <p className="text-3xl font-extrabold">Your Answer</p>
-                <p className="rounded-2xl bg-amber-100 p-5 h-max w-max">{"Your answer will go here"}</p>
+                <p className="rounded-2xl bg-amber-100 p-5 h-max w-max">{selectedProblem.user_answer}</p>
               </div>
-              <div className="min-h-max min-w-max">
+              <div className="min-h-max max-w-[50%]">
                 <p className="text-3xl font-extrabold">Your Assistant's Answer</p>
-                <p className="rounded-2xl bg-slate-100 p-5 min-h-max min-w-max">{"Your assistant's answer will go here"}</p>
+                <div className="rounded-2xl bg-slate-100 p-5 min-h-max max-w-fit">
+                  <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
+                    {selectedProblem.solution}</ReactMarkdown>
+                </div>
               </div>
             </div>
-            {selectedProblem.is_done == false && 
-              <button onClick={MarkDone} className="border cursor-pointer text-xl p-3 bg-green-300 ">
-                ✅ Mark as Done</button>}
-              <button onClick={()=>router.push("/newproblem")} className="border cursor-pointer text-xl p-3 bg-gray-200 ">
-                Start a new Problem</button>
+            <center>
+              {selectedProblem.is_done == false &&
+                <button onClick={MarkDone} className="border cursor-pointer text-xl p-3 bg-green-300 ">
+                  ✅ Mark as Done</button>}
+                <button onClick={()=>router.push("/newproblem")} className="border cursor-pointer text-xl p-3 bg-gray-200 ">
+                  Start a new Problem</button>
+            </center>
           </div>}
           
         </div>

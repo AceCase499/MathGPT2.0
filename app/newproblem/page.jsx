@@ -25,7 +25,7 @@ export default function NewProblemPage() {
 
   const [quizType, setQuizType] = useState('');
   const [topic, setTopic] = useState('');
-  const [lectureSessionId, setLectureSessionId] = useState('1');
+  const [lectureSessionId, setLectureSessionId] = useState(0);
   const [problemType, setProblemType] = useState('');
   const [generatedQuestion, setGeneratedQuestion] = useState('');
   const [correctAnswer, setCorrectAnswer] = useState('');
@@ -35,6 +35,7 @@ export default function NewProblemPage() {
   const [submitted, setSubmitted] = useState(false);
   const [showAnswerModal, setShowAnswerModal] = useState(false);
   const [LectureArchive, setLectureArchive] = useState([]);
+  const [learningStyle, setLearningStyle] = useState("Auto")
 
   const [loading, setLoading] = useState(false);
   const [answering, setAnswering] = useState(false);
@@ -74,14 +75,14 @@ export default function NewProblemPage() {
     }, 600); // fake latency for demo
   };
 
-  // ====== TTS (Text-to-Speech) ======
+  // ====== TTS (Text-to-Speech) ===================================================
   const supportsTTS = typeof window !== "undefined" && "speechSynthesis" in window;
   const [voices, setVoices] = useState([]);
   const [isSpeaking, setIsSpeaking] = useState(false);
 
   useEffect(() => {
     if (!supportsTTS) return;
-
+    getLStyle()
     const synth = window.speechSynthesis;
     const loadVoices = () => setVoices(synth.getVoices());
     loadVoices();
@@ -122,7 +123,7 @@ export default function NewProblemPage() {
     window.speechSynthesis.cancel();
     setIsSpeaking(false);
   };
-  // ====== /TTS ======
+  // ====== /TTS =============================================================
 
   const subtopicOptions = {
     Algebra: [
@@ -183,6 +184,21 @@ export default function NewProblemPage() {
       "Type I/II errors",
     ],
   };
+
+  async function getLStyle(){
+    const form = new FormData();
+    Object.entries({student_id: user?.id}).forEach(([key, value]) => {
+      form.append(key, value);
+    });
+    const response = await fetch('https://mathgptdevs25.pythonanywhere.com/get_learning_style', {
+      method: 'POST',
+      body: form
+    });
+
+    const data = await response.json();
+    //alert("Style set to "+data.learning_style)
+    setLearningStyle(data.learning_style)
+  }
 
   async function loadLectureList() {
     const form = new FormData();
@@ -249,14 +265,17 @@ export default function NewProblemPage() {
     setExplanation('');
     setShowAnswerModal(false);
     setImageUrl('');
+
+    /////////////////////////////////////////////////////////////////
   };
 
   const handleSubmit = async () => {
     setLoading(true);
     try {
       const payload = {
-        student_id: '3',
+        student_id: user?.id,
         mode: quizType,
+        lecture_id: lectureSessionId
       };
 
       if (quizType === 'topic') {
@@ -442,8 +461,8 @@ export default function NewProblemPage() {
       {/* Main Area */}
       <div style={{ display: 'flex', flexGrow: 1 }}>
         <div style={{ ...panelStyle, width: '35%', backgroundColor: '#ffffff', borderRight: '1px solid #ddd' }}>
-          <h2>🧠 Solve a Math Problem 🧠</h2>
-          <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
+          <h2 className='text-4xl font-bold pb-3 flex justify-center'>🧠 Solve a Math Problem 🧠</h2>
+          <div className='flex justify-center' style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
             <button style={navBtnStyle} onClick={() => handleClick('topic')}>Quiz on Topic</button>
             <button style={navBtnStyle} onClick={() => handleClick('lecture')}>Quiz on Lecture</button>
             <button style={navBtnStyle} onClick={() => window.location.href = '/problems'}>Go to Problem Page</button>
@@ -534,9 +553,9 @@ export default function NewProblemPage() {
             {quizType === 'lecture' && (
               <>
                 <label><strong>Lecture Session:</strong></label>
-                <select value={lectureSessionId} onChange={(e) => setLectureSessionId(e.target.id)} style={inputStyle}>
+                <select onChange={e => setLectureSessionId(Number(e.target.value[0]))} style={inputStyle}>
                   {LectureArchive.map((lec, index) => (
-                    <option key={lec.lecture_id} value={[lec.topic, lec.subtopic]}>{lec.title}</option>
+                    <option value={[lec.lecture_id, lec.topic, lec.subtopic]} key={lec.lecture_id}>{lec.title}</option>
                   ))}
                 </select>
               </>
@@ -641,12 +660,6 @@ export default function NewProblemPage() {
                 {answering ? <>Submitting... {spinner}</> : "✅ Submit Answer"}
               </button>
 
-              <strong>Clarifying Question:</strong>
-              <textarea value={clarification} onChange={(e) => setClarification(e.target.value)} style={{ ...inputStyle, minHeight: '60px' }} />
-              <button style={{ ...navBtnStyle, backgroundColor: '#777', color: 'white' }} onClick={handleClarifySubmit}>
-                ❓ Submit Clarification
-              </button>
-
               {explanation && (
                 <div style={{ marginTop: '1.5rem', backgroundColor: '#eef', padding: '1rem', borderRadius: '6px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -695,7 +708,7 @@ export default function NewProblemPage() {
                       fontWeight: 'bold'
                     }}
                   >
-                    📎 Copy All
+                    📎 Copy Text
                   </button>
                 </div>
               )}
@@ -705,7 +718,7 @@ export default function NewProblemPage() {
                   style={{ ...navBtnStyle, borderColor: '#4CAF50', color: '#4CAF50' }}
                   onClick={handleMarkComplete}
                 >
-                  ✅ Save
+                  ✅ Rename & Mark Done
                 </button>
                 <button
                   style={{ ...navBtnStyle, borderColor: '#cc0000', color: '#cc0000' }}
@@ -732,6 +745,8 @@ export default function NewProblemPage() {
             backgroundColor: 'white', padding: '2rem', borderRadius: '8px',
             minWidth: '300px', boxShadow: '0 4px 8px rgba(0,0,0,0.2)'
           }}>
+            <h3>Mark your problem as complete?</h3>
+            <h3>{"(This action will make your math problem read only.  You will not be able to generate hints or solutions from this math problem anymore.)"}</h3>
             <h3>Name Your Problem</h3>
             <input
               type="text"

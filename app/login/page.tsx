@@ -19,9 +19,7 @@ export default function LoginPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     //console.log(`${email}\n${password}`)
-    if(attempts > 0){
-      setAttempts(attempts - 1)
-    } else{
+    if(attempts == 0){
       alert("The system has activated a user lockout.\nPlease try again later.")
       return
     }
@@ -51,6 +49,8 @@ export default function LoginPage() {
 
     if (result.status == false){
       setLoading(false)
+      setAttempts(attempts - 1)
+      return
     }
     if (result.status == true){
       console.log('login result', result);
@@ -58,7 +58,6 @@ export default function LoginPage() {
         id: result.user_id || 0, // 确保有 id 字段
         username: username,
         user_type: result.user_type, // store user_type for role-based UI
-        learning_style: result.learning_style
       });
       alert("Welcome back to MathGPT!");
       router.push('/welcome');
