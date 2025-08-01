@@ -1,8 +1,12 @@
 "use client";
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useContext } from "react";
 import { useRouter } from "next/navigation";
-import logo from "../../assets/images/logofull.png";
 import MathSymbolKeyboard from "../components/mathkeyboard";
+import { AuthContext } from "../context/AuthContext";
+import ReactMarkdown from 'react-markdown';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
+import 'katex/dist/katex.min.css';
 
 const STORAGE_KEY = "problems_v1";
 
@@ -15,31 +19,30 @@ function suggestTitle(input) {
 }
 
 export default function ProblemsPage() {
+  const { user } = useContext(AuthContext);
   const router = useRouter();
 
   // --- State ---
-  const [problems, setProblems] = useState([]);
+  const [problems, setProblems] = useState([{}]);
   const [selectedId, setSelectedId] = useState(null);
   const [editingId, setEditingId] = useState(null);
   const [newTitle, setNewTitle] = useState("");
 
   const [questionInput, setQuestionInput] = useState("");
-  const [finalAnswer, setFinalAnswer] = useState("");
   const [steps, setSteps] = useState("");
-  const [showSteps, setShowSteps] = useState(false);
   const [loadingAnswer, setLoadingAnswer] = useState(false);
 
   const [showKeyboard, setShowKeyboard] = useState(false);
   const [previewSymbol, setPreviewSymbol] = useState("");
-
+  const [selectedProblem, setSelectedProblem] = useState({});
   const [search, setSearch] = useState(""); // NEW
 
   // --- Derived ---
   const suggestedTitle = useMemo(() => suggestTitle(questionInput), [questionInput]);
-  const selectedProblem = useMemo(
+  /* const selectedProblem = useMemo(
     () => problems.find((p) => p.id === selectedId) || null,
     [problems, selectedId]
-  );
+  ); */
 
   // NEW: filtered list (title or question)
   const filteredProblems = useMemo(() => {
@@ -54,17 +57,21 @@ export default function ProblemsPage() {
 
   // --- Persistence ---
   useEffect(() => {
-    try {
+    //alert(`${user?.id}, ${user?.username}`)
+    loadLectureList()
+    //console.log(selectedProblem)
+
+    /* try {
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
       setProblems(saved);
     } catch {
       // ignore
-    }
+    } */
   }, []);
 
-  useEffect(() => {
+/*   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(problems));
-  }, [problems]);
+  }, [problems]); */
 
   // --- Handlers ---
   const handleInsertSymbol = useCallback((symbol) => {
@@ -92,70 +99,10 @@ export default function ProblemsPage() {
     [newTitle]
   );
 
-  const handleProblemClick = useCallback((id) => {
-    setSelectedId((prev) => (prev === id ? null : id));
+  const handleProblemClick = useCallback((prob) => {
+    setSelectedId((prev) => (prev === prob.session_id ? null : prob.session_id));
+    setSelectedProblem(prob)
   }, []);
-
-  const handleQuestionChange = useCallback((e) => {
-    const input = e.target.value;
-    setQuestionInput(input);
-    setFinalAnswer("");
-    setSteps("");
-    setShowSteps(false);
-  }, []);
-
-  const handleGenerate = useCallback(async () => {
-    if (!questionInput.trim()) {
-      alert("Please enter a question first.");
-      return;
-    }
-
-    const url = "https://mathgptdevs25.pythonanywhere.com/mathgpt/problem/answer_mode";
-    const formData = new URLSearchParams();
-    formData.append("question", questionInput);
-    formData.append("student_id", "1"); // TODO: replace with real user id
-
-    setLoadingAnswer(true);
-    setFinalAnswer("");
-    setSteps("");
-    setShowSteps(false);
-
-    try {
-      const response = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: formData.toString(),
-      });
-      const data = await response.json();
-
-      if (!response.ok) {
-        console.error("Error:", data.error);
-        alert(`Error: ${data.error}`);
-        return;
-      }
-
-      setFinalAnswer(data.final_answer);
-      setSteps(data.steps);
-
-      const newProblem = {
-        id: data.session_id,
-        title: suggestedTitle || "New Problem",
-        createdAt: new Date().toISOString().slice(0, 10),
-        question: data.question,
-        finalAnswer: data.final_answer,
-        steps: data.steps,
-      };
-
-      setProblems((prev) => [newProblem, ...prev]);
-      setSelectedId(data.session_id);
-      setQuestionInput("");
-    } catch (err) {
-      console.error("Request failed:", err);
-      alert(`Error: ${err.message}`);
-    } finally {
-      setLoadingAnswer(false);
-    }
-  }, [questionInput, suggestedTitle]);
 
   const buttonStyle = {
     background: "white",
@@ -165,6 +112,40 @@ export default function ProblemsPage() {
     padding: "0.5rem 1rem",
     cursor: "pointer",
   };
+
+  async function loadLectureList(){
+    const form = new FormData();
+    Object.entries({ student_id: user?.id }).forEach(([key, value]) => {
+      form.append(key, value);
+    });
+
+    const response = await fetch('https://mathgptdevs25.pythonanywhere.com/mathgpt/problem/list', {
+      method: 'POST',
+      body: form
+    });
+    const data = await response.json();   
+    console.log(data) 
+    setProblems(data)
+  }
+
+  async function MarkDone(){
+    const pid = selectedProblem.session_id
+    if (!pid){
+      alert("ID not found")
+      return
+    }
+    const form = new FormData();
+    Object.entries({ session_id: pid }).forEach(([key, value]) => {
+      form.append(key, value);
+    });
+
+    const response = await fetch('https://mathgptdevs25.pythonanywhere.com/mathgpt/problem/complete', {
+      method: 'POST',
+      body: form
+    });
+    const data = await response.json();   
+    alert(data.message) 
+  }
 
   return (
     <div
@@ -178,29 +159,6 @@ export default function ProblemsPage() {
         overflow: "hidden",
       }}
     >
-      {/* Top Nav */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          padding: "1rem",
-          borderBottom: "1px solid black",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-          <img src={logo} alt="MathGPT Logo" style={{ height: "30px" }} />
-          <button onClick={() => router.push("/lectures")} style={buttonStyle}>
-            Lectures
-          </button>
-          <button onClick={() => router.push("/problemlist")} style={buttonStyle}>
-            Problems
-          </button>
-        </div>
-        <button onClick={() => router.push("/login")} style={buttonStyle}>
-          Login
-        </button>
-      </div>
 
       {/* Main content */}
       <div style={{ display: "flex", flexGrow: 1, overflow: "hidden" }}>
@@ -214,13 +172,13 @@ export default function ProblemsPage() {
             backgroundColor: "white",
           }}
         >
-          <h2>My Problems</h2>
           <button
             style={{ ...buttonStyle, width: "100%", marginBottom: "1rem" }}
             onClick={() => router.push("/newproblem")}
           >
             New Problem
           </button>
+          <h2 className="font-bold">My Problems</h2>
 
           {/* NEW: search bar */}
           <input
@@ -237,28 +195,28 @@ export default function ProblemsPage() {
             }}
           />
 
-          <ul style={{ listStyle: "none", padding: 0 }}>
             {filteredProblems.length === 0 && (
-              <li style={{ color: "#777" }}>
+              <p style={{ color: "#777" }}>
                 {problems.length === 0
                   ? "No problems yet. Create one!"
                   : "No matches."}
-              </li>
+              </p>
             )}
 
-            {filteredProblems.map((p) => (
-              <li key={p.id} style={{ marginBottom: "1rem" }}>
-                {editingId === p.id ? (
+            {filteredProblems.map((prob, index) => (
+              <div key={prob.session_id} style={{ marginBottom: "1rem" }}>
+                {editingId === prob.session_id ? (
                   <input
                     autoFocus
                     value={newTitle}
                     onChange={(e) => setNewTitle(e.target.value)}
-                    onBlur={() => handleRename(p.id)}
-                    onKeyDown={(e) => e.key === "Enter" && handleRename(p.id)}
+                    onBlur={() => handleRename(prob.session_id)}
+                    onKeyDown={(e) => e.key === "Enter" && handleRename(prob.session_id)}
                     style={{ width: "100%" }}
                   />
                 ) : (
                   <div
+                    key={prob.session_id}
                     style={{
                       display: "flex",
                       justifyContent: "space-between",
@@ -269,19 +227,19 @@ export default function ProblemsPage() {
                       style={{
                         cursor: "pointer",
                         flex: 1,
-                        fontWeight: selectedId === p.id ? "bold" : "normal",
+                        fontWeight: selectedId === prob.session_id ? "bold" : "normal",
                       }}
-                      onClick={() => handleProblemClick(p.id)}
+                      onClick={() => handleProblemClick(prob)}
                     >
-                      {p.title}
+                      {prob.title}
                     </span>
                     <div
                       style={{ marginLeft: "0.5rem", display: "flex", gap: "0.25rem" }}
                     >
                       <button
                         onClick={() => {
-                          setEditingId(p.id);
-                          setNewTitle(p.title);
+                          setEditingId(prob.session_id);
+                          setNewTitle(prob.title);
                         }}
                         style={buttonStyle}
                         title="Rename"
@@ -289,7 +247,7 @@ export default function ProblemsPage() {
                         ✏️
                       </button>
                       <button
-                        onClick={() => handleDelete(p.id)}
+                        onClick={() => handleDelete(prob.session_id)}
                         style={buttonStyle}
                         title="Delete"
                       >
@@ -298,16 +256,16 @@ export default function ProblemsPage() {
                     </div>
                   </div>
                 )}
-                <small>{p.createdAt}</small>
-              </li>
+                <small>{prob.createdAt}</small>
+              </div>
             ))}
-          </ul>
+
 
           <p style={{ marginTop: "1rem" }}>Select a problem to view details</p>
         </div>
 
         {/* Right panel */}
-        <div
+        <div className="h-[100%] pt-18"
           style={{
             flex: 1,
             display: "flex",
@@ -316,220 +274,32 @@ export default function ProblemsPage() {
             backgroundColor: "white",
           }}
         >
-          {/* Header stays sticky */}
-          <div
-            style={{
-              position: "sticky",
-              top: 0,
-              zIndex: 10,
-              backgroundColor: "white",
-              padding: "1rem 0",
-              borderBottom: "1px solid #eee",
-              textAlign: "center",
-            }}
-          >
-            <h2 style={{ fontSize: "1.5rem", fontWeight: "bold", color: "#222" }}>
-              Type a new question
-            </h2>
-          </div>
 
           {/* Problem view or new input */}
-          <div
-            style={{
-              flex: 1,
-              display: "flex",
-              flexDirection: "column",
-              justifyContent: "space-between",
-              overflowY: "auto",
-            }}
-          >
-            {!selectedProblem ? (
-              <div
-                style={{
-                  flex: 1,
-                  display: "flex",
-                  flexDirection: "column",
-                  justifyContent: "flex-end",
-                }}
-              >
-                {/* Input area at bottom */}
-                <div
-                  style={{
-                    width: "100%",
-                    paddingTop: "1rem",
-                    borderTop: "1px solid #eee",
-                    backgroundColor: "white",
-                    marginTop: "auto",
-                  }}
-                >
-                  <div
-                    style={{
-                      maxWidth: "1000px",
-                      margin: "0 auto",
-                      paddingBottom: "2rem",
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "flex-end",
-                        marginBottom: "0.5rem",
-                      }}
-                    >
-                      <button
-                        onClick={() => setShowKeyboard((prev) => !prev)}
-                        title="Toggle Math Keyboard"
-                        style={{
-                          border: "none",
-                          backgroundColor: "#f0f0f0",
-                          borderRadius: "8px",
-                          padding: "0.4rem 0.6rem",
-                          fontSize: "1rem",
-                          cursor: "pointer",
-                          boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-                        }}
-                      >
-                        ⌨️
-                      </button>
-                    </div>
-
-                    {showKeyboard && (
-                      <div style={{ marginBottom: "1rem" }}>
-                        <MathSymbolKeyboard
-                          onInsert={handleInsertSymbol}
-                          previewSymbol={previewSymbol}
-                        />
-                      </div>
-                    )}
-
-                    <textarea
-                      value={questionInput}
-                      onChange={handleQuestionChange}
-                      placeholder="Type your math question here..."
-                      style={{
-                        width: "100%",
-                        minHeight: "100px",
-                        padding: "1rem 1.25rem",
-                        fontSize: "1rem",
-                        fontFamily: "inherit",
-                        border: "1px solid " + "#dcdcdc",
-                        borderRadius: "12px",
-                        backgroundColor: "#fcfcfc",
-                        resize: "vertical",
-                        outline: "none",
-                        boxShadow: "inset 0 1px 2px rgba(0,0,0,0.04)",
-                        marginBottom: "1rem",
-                      }}
-                    />
-
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                      }}
-                    >
-                      {!!questionInput && (
-                        <span style={{ fontWeight: "bold", color: "darkblue" }}>
-                          {suggestedTitle}
-                        </span>
-                      )}
-
-                      <button
-                        onClick={handleGenerate}
-                        disabled={loadingAnswer}
-                        style={{
-                          padding: "0.6rem 1.5rem",
-                          borderRadius: "999px",
-                          border: "none",
-                          fontWeight: "bold",
-                          background: loadingAnswer ? "#999" : "blue",
-                          color: "white",
-                          cursor: loadingAnswer ? "not-allowed" : "pointer",
-                          fontSize: "1rem",
-                        }}
-                      >
-                        {loadingAnswer ? "Generating..." : "Generate"}
-                      </button>
-                    </div>
-
-                    {(finalAnswer || steps) && (
-                      <div style={{ marginTop: "1.5rem" }}>
-                        {finalAnswer && (
-                          <>
-                            <h3>Final answer</h3>
-                            <p>{finalAnswer}</p>
-                          </>
-                        )}
-                        {steps && (
-                          <>
-                            <button
-                              onClick={() => setShowSteps((s) => !s)}
-                              style={{ ...buttonStyle, marginTop: "0.5rem" }}
-                            >
-                              {showSteps ? "Hide steps" : "Show steps"}
-                            </button>
-                            {showSteps && (
-                              <pre
-                                style={{
-                                  whiteSpace: "pre-wrap",
-                                  padding: "0.75rem",
-                                  border: "1px solid #eee",
-                                  borderRadius: 6,
-                                  marginTop: "0.5rem",
-                                  backgroundColor: "#fafafa",
-                                }}
-                              >
-                                {steps}
-                              </pre>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
+          {selectedProblem != {} && 
+          <div className='min-h-max'>
+            <p className="font-bold text-xl flex px-4 justify-end pt-5">{"Date created: "+selectedProblem.created_at}</p>
+            <p className="flex justify-end px-4">{selectedProblem.is_done == false ? "⚙️Not marked as Done":"✅Marked as Done"}</p>
+            <p className="font-extrabold text-3xl flex justify-center pt-5 underline underline-offset-2">{selectedProblem.title}</p>
+            <p className=" italic text-xl flex justify-center pt-2">{`(${selectedProblem.topic}, ${selectedProblem.subtopic})`}</p>
+            <p className="flex justify-center pt-4">Math Problem Goes Here</p>
+            <div className="flex justify-center h-max pt-10">
+              <div className="min-h-max min-w-max pb-15">
+                <p className="text-3xl font-extrabold">Your Answer</p>
+                <p className="rounded-2xl bg-amber-100 p-5 h-max w-max">{"Your answer will go here"}</p>
               </div>
-            ) : (
-              <div style={{ padding: "2rem", maxWidth: "1000px", margin: "0 auto" }}>
-                <h2>{selectedProblem.title}</h2>
-                <p>
-                  <strong>Created:</strong> {selectedProblem.createdAt}
-                </p>
-
-                <h3>Question</h3>
-                <p>{selectedProblem.question}</p>
-
-                <h3>Final Answer</h3>
-                <p>{selectedProblem.finalAnswer}</p>
-
-                {selectedProblem.steps && (
-                  <div style={{ marginTop: "1rem" }}>
-                    <button
-                      onClick={() => setShowSteps((s) => !s)}
-                      style={{ ...buttonStyle }}
-                    >
-                      {showSteps ? "Hide steps" : "Show steps"}
-                    </button>
-                    {showSteps && (
-                      <pre
-                        style={{
-                          whiteSpace: "pre-wrap",
-                          padding: "0.75rem",
-                          border: "1px solid #eee",
-                          borderRadius: 6,
-                          marginTop: "0.5rem",
-                          backgroundColor: "#fafafa",
-                        }}
-                      >
-                        {selectedProblem.steps}
-                      </pre>
-                    )}
-                  </div>
-                )}
+              <div className="min-h-max min-w-max">
+                <p className="text-3xl font-extrabold">Your Assistant's Answer</p>
+                <p className="rounded-2xl bg-slate-100 p-5 min-h-max min-w-max">{"Your assistant's answer will go here"}</p>
               </div>
-            )}
-          </div>
+            </div>
+            {selectedProblem.is_done == false && 
+              <button onClick={MarkDone} className="border cursor-pointer text-xl p-3 bg-green-300 ">
+                ✅ Mark as Done</button>}
+              <button onClick={()=>router.push("/newproblem")} className="border cursor-pointer text-xl p-3 bg-gray-200 ">
+                Start a new Problem</button>
+          </div>}
+          
         </div>
       </div>
     </div>

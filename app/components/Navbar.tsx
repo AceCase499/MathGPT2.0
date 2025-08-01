@@ -9,18 +9,58 @@ import {Sparkles, UserRound } from "lucide-react"
 export default function Navbar() {
   const { user } = useContext(AuthContext) as any;
   const [mounted, setMounted] = useState(false);
+  const [updatingLS, ttgUpdateLS] = useState(false);
+  const [learningStyle, setLearningStyle] = useState('Auto'); // Default value
 
   useEffect(() => {
     setMounted(true);
+    if (user){
+      getLStyle()
+    }
   }, []);
 
-  console.log('Navbar user:', user);
+  //console.log('Navbar user:', user);
 
   if (!mounted) {
     return null;
   }
 
   const isLoggedIn = !!user;
+
+  async function getLStyle(){
+    ttgUpdateLS(!updatingLS)
+    const form = new FormData();
+    Object.entries({student_id: user?.id}).forEach(([key, value]) => {
+      form.append(key, value);
+    });
+    const response = await fetch('https://mathgptdevs25.pythonanywhere.com/get_learning_style', {
+      method: 'POST',
+      body: form
+    });
+
+    const data = await response.json();
+    alert("Style set to "+data.learning_style)
+    setLearningStyle(data.learning_style)
+    ttgUpdateLS(!updatingLS)
+  }
+
+  async function handleLStyle(LStyle){
+    ttgUpdateLS(!updatingLS)
+    setLearningStyle(LStyle)
+    const form = new FormData();
+    Object.entries({student_id: user?.id, learning_style: LStyle}).forEach(([key, value]) => {
+      form.append(key, value);
+    });
+    
+    const response = await fetch('https://mathgptdevs25.pythonanywhere.com/update_learning_style', {
+      method: 'POST',
+      body: form
+    });
+
+    const data = await response.json();
+    alert(data.message)
+    ttgUpdateLS(!updatingLS)
+  }
 
   return (
     <nav className="w-full z-20 bg-gray-100 shadow-md fixed top-0 left-0 flex justify-between items-center px-6 py-4">
@@ -48,7 +88,7 @@ export default function Navbar() {
           <div className='flex items-center bg-slate-300 p-2 rounded-xl'>
             <Sparkles size={24}/>
             <p className='font-bold'>Learning Style:</p>
-            <select name="ls">
+            <select name="ls" disabled={updatingLS} value={learningStyle} onChange={e=>handleLStyle(e.target.value)}>
               <option value="Auto">Auto</option>
               <option value="Audio">Audio</option>
               <option value="Visual">Visual</option>

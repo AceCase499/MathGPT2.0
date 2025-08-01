@@ -142,7 +142,7 @@ export default function jsChat(){
     }
     const data = await response.json();
     setCurrentLectureID(data.lecture_id)
-    loadSingleLecture(currentLectureID, Topic, Subtopic)
+    setChatStream(prev => [...prev, { sender: "assistant", message: data.content }]);
     scroll()
     tggLectureStart(true); // Enable "Continue Lecture" button
     ttginp(true);
@@ -156,6 +156,7 @@ export default function jsChat(){
       return
     }
     ttginp(false);
+    setChatStream(prev => [...prev, { sender: "user", message: InputText }]);
   
     if (currentLectureID == 0 || Topic == "" || Subtopic == ""){
       ttgSearch(!openSearch)
@@ -173,7 +174,6 @@ export default function jsChat(){
     });
 
     const data = await response.json();
-    console.log(data)
     setChatStream(prev => [...prev, { sender: "ai", message: data.answer }]);
     setInputText("")
     ttginp(true) //enable chat bar
@@ -246,7 +246,7 @@ export default function jsChat(){
       console.log(data)
       if (currentLectureID == lecID){
         //router.refresh();
-        router.push("/lecturehome")
+        router.push("/courses")
       } else{
         loadLectureList()
       }
@@ -334,6 +334,28 @@ export default function jsChat(){
     setAudCounter(audioCounter+1);
   }
 
+  /* const speak = (text) => {
+    if (!supportsTTS || !text) return;
+    const synth = window.speechSynthesis;
+    synth.cancel();
+
+    const utter = new SpeechSynthesisUtterance(toReadable(text));
+    utter.voice = voices.find((v) => v.lang?.startsWith("en")) || voices[0] || null;
+    utter.rate = 1;
+    utter.pitch = 1;
+    utter.onend = () => setIsSpeaking(false);
+    utter.onerror = () => setIsSpeaking(false);
+
+    setIsSpeaking(true);
+    synth.speak(utter);
+  };
+
+  const stopSpeaking = () => {
+    if (!supportsTTS) return;
+    window.speechSynthesis.cancel();
+    setIsSpeaking(false);
+  }; */
+
   const handleCopy = async (textt) => {
         try {
           await navigator.clipboard.writeText(textt);
@@ -402,6 +424,17 @@ export default function jsChat(){
   }
 
   function applyStyle (){
+    if (LStyle == "Visual"){//if the style is set to Visual, generate an image to go with the lecture automatically
+      getGraphic()
+      return
+    }
+    if (LStyle == "Audio"){//if the style is set to Audio, generate text to speech with every new message automatically
+      let streamm = ChatStream
+      let lastChat = streamm[streamm.length-1].message
+      TTSopenai(lastChat)
+      return
+    }
+    
     if (LStyle == "Auto"){//if the user's learning style is set to 'auto', automatically use the tool that they use most often
       if (vizCounter > audioCounter){
         getGraphic()
@@ -426,28 +459,18 @@ export default function jsChat(){
         }
       }
     }
-    if (LStyle == "Visual"){//if the style is set to Visual, generate an image to go with the lecture automatically
-      getGraphic()
-      return
-    }
-    if (LStyle == "Audio"){//if the style is set to Audio, generate text to speech with every new message automatically
-      let streamm = ChatStream
-      let lastChat = streamm[streamm.length-1].message
-      TTSopenai(lastChat)
-      return
-    }
   }
   
 
   return (
     <div>
       <NavigationBar/>
-      <div className="splitsub left bg-slate-300 text-xl h-full">
+      <div className="splitsub px-3 left bg-slate-300 text-xl h-full">
         {/* This div holds the left panel */}
         <p onClick={rreset} className="py-3 cursor-pointer text-xl font-extrabold underline underline-offset-8">
           Start a new Lecture
         </p>
-        <h1 className="text-blue-600 px-3 pt-3 font-extrabold">Previous Sessions:</h1>
+        <h1 className="text-blue-600 pt-3 font-extrabold">Previous Sessions:</h1>
         {/*Previous Topics loaded in from database are placed here*/}
         {!updating && LectureArchive.map((lec, index) => (
             <div
@@ -458,7 +481,7 @@ export default function jsChat(){
             >
               <p
                 onClick={() => loadSingleLecture(lec.lecture_id, lec.topic, lec.subtopic)}
-                className="font-bold cursor-pointer fadeTargetIn text-ellipsis"
+                className="px-4 font-bold cursor-pointer fadeTargetIn text-ellipsis"
               >
                 {lec.title}
               </p>
@@ -491,6 +514,7 @@ export default function jsChat(){
 
           {InpEnabled == false && <div className="assistantOuter">
               <div className="currentInner">
+                {currentBotResponse}
                 <WaveLoader></WaveLoader>
               </div>
             </div>}
@@ -535,7 +559,7 @@ export default function jsChat(){
                 disabled={!InpEnabled}
                 placeholder="Ask a Question..."
                 onChange={
-                  e => setInputText(e.target.value) /* handleInputChange */
+                  e => setInputText(e.target.value)
                 }
                 className={InpEnabled ? inputBar+enabledcss : inputBar+disabledcss}
                 />

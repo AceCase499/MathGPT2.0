@@ -442,7 +442,7 @@ export default function NewProblemPage() {
       {/* Main Area */}
       <div style={{ display: 'flex', flexGrow: 1 }}>
         <div style={{ ...panelStyle, width: '35%', backgroundColor: '#ffffff', borderRight: '1px solid #ddd' }}>
-          <h2>🧠 Quiz Setup</h2>
+          <h2>🧠 Solve a Math Problem 🧠</h2>
           <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
             <button style={navBtnStyle} onClick={() => handleClick('topic')}>Quiz on Topic</button>
             <button style={navBtnStyle} onClick={() => handleClick('lecture')}>Quiz on Lecture</button>
@@ -536,7 +536,7 @@ export default function NewProblemPage() {
                 <label><strong>Lecture Session:</strong></label>
                 <select value={lectureSessionId} onChange={(e) => setLectureSessionId(e.target.id)} style={inputStyle}>
                   {LectureArchive.map((lec, index) => (
-                    <option key={lec.lecture_id.toString()} value={[lec.topic, lec.subtopic]}>{lec.title}</option>
+                    <option key={lec.lecture_id} value={[lec.topic, lec.subtopic]}>{lec.title}</option>
                   ))}
                 </select>
               </>
@@ -641,7 +641,7 @@ export default function NewProblemPage() {
                 {answering ? <>Submitting... {spinner}</> : "✅ Submit Answer"}
               </button>
 
-              <label><strong>Clarifying Question:</strong></label>
+              <strong>Clarifying Question:</strong>
               <textarea value={clarification} onChange={(e) => setClarification(e.target.value)} style={{ ...inputStyle, minHeight: '60px' }} />
               <button style={{ ...navBtnStyle, backgroundColor: '#777', color: 'white' }} onClick={handleClarifySubmit}>
                 ❓ Submit Clarification

@@ -58,6 +58,7 @@ export default function LoginPage() {
         id: result.user_id || 0, // 确保有 id 字段
         username: username,
         user_type: result.user_type, // store user_type for role-based UI
+        learning_style: result.learning_style
       });
       alert("Welcome back to MathGPT!");
       router.push('/welcome');
@@ -75,16 +76,6 @@ export default function LoginPage() {
     } */
   };
 
-  async function tryme(){
-    /* await login({
-        id: 1,//result.id,
-        name: "Jerrod",//result.name,
-        bio: "I like robots",//result.bio
-      }); */
-      alert("Welcome back to MathGPT!")
-      router.push('/welcome');
-  }
-
   return (
     <div
     className="flex min-h-screen items-center justify-center bg-cover bg-center"
@@ -97,6 +88,8 @@ export default function LoginPage() {
         className="bg-white p-6 rounded-lg shadow-md w-full max-w-sm"
       >
         <h2 className="text-2xl font-bold mb-4 text-center">Log In</h2>
+        {attempts < 3 && attempts > 0 && (
+          <h2 className="text-xl italic mb-4 text-center" style={{color: "red"}}>Incorrect Username or Password. Please try again.</h2>)}
         {attempts == 0 && (
           <h2 className="text-xl italic mb-4 text-center" style={{color: "red"}}>Too many login attempts.  Please try again later.</h2>)}
 
