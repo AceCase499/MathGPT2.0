@@ -105,7 +105,7 @@ export default function SignupPage() {
             username: formData.username,
           }));
           await login({
-            id: 0, // mock id, 后端返回文本时无法获取真实 id
+            id: 0, // mock id, cannot get real id when backend returns text
             username: formData.username,
             user_type: formData.user_type,
           });
